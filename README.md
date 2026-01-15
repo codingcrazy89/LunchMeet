@@ -1,50 +1,80 @@
-# Welcome to your Expo app 👋
+# LunchMeet 🍽️
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A social platform for organizing lunch meetups where users can host or join lunch meetings at restaurants.
+
+## Features
+
+- 🔍 Google Places integration for restaurant search
+- 📅 Schedule lunch meets with date, time, and guest count
+- 👤 User profiles with photos, bio, and interests
+- 💬 Real-time group chat for lunch attendees
+- ✅ Request/approval system for joining lunches
 
 ## Get started
 
-1. Install dependencies
+### Prerequisites
+
+- Node.js installed
+- A Google Places API key
+- A Supabase account with project set up
+
+### Installation
+
+1. Clone the repository
+
+   ```bash
+   git clone https://github.com/codingcrazy89/LunchMeet.git
+   cd LunchMeet
+   ```
+
+2. Install dependencies
 
    ```bash
    npm install
    ```
 
-2. Start the app
+3. Set up environment variables
 
-   ```bash
-   npx expo start
+   Create a `.env` file in the root directory:
+
+   ```env
+   GOOGLE_PLACES_API_KEY=your_google_places_api_key
+   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
-In the output, you'll find options to open the app in a
+4. Start the proxy server (for Google Places API)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   ```bash
+   npm run proxy
+   ```
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+5. Start the app
 
-## Get a fresh project
+   ```bash
+   npm run web
+   ```
 
-When you're ready, run:
+## Database Setup
 
-```bash
-npm run reset-project
-```
+Run the SQL migrations in the `migrations/` directory in your Supabase SQL Editor:
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+1. `create_chat_system.sql` - Creates chat rooms and messages tables
+2. `add_looking_for_column.sql` - Adds looking_for column to profiles
+3. `add_status_to_lunch_attendees.sql` - Adds status to lunch_attendees
+4. `fix_lunch_attendees_rls_v2.sql` - Sets up RLS policies for lunch_attendees
+5. `alternative_rls_fix.sql` - Creates RPC functions for accepting/denying requests
+6. `enable_realtime_messages.sql` - Enables real-time for messages
+
+## Tech Stack
+
+- **Frontend**: React Native with Expo
+- **Backend**: Supabase (PostgreSQL + Authentication + Realtime)
+- **Maps**: Google Places API
+- **Routing**: Expo Router
 
 ## Learn more
 
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+To learn more about developing with Expo, check out:
+- [Expo documentation](https://docs.expo.dev/)
+- [Expo Router documentation](https://docs.expo.dev/router/introduction/)
