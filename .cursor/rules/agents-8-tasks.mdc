@@ -1,0 +1,24 @@
+---
+description: When working on LunchMeet agent tasks 1-8, grant full permission to implement.
+globs: 
+alwaysApply: false
+---
+
+# 8 Agent Tasks — Full Implementation Permission
+
+When the user or an agent is working on a task from `.cursor/agents/AGENT_0X_*.md`:
+
+1. **Read the task file** — Load the full contents of the specified AGENT_0X file.
+2. **Implement completely** — You have full permission to create and edit all files listed in the task. No need to ask for approval.
+3. **Follow the instructions** — Execute the steps, create migrations, add components, and modify the specified files as described.
+4. **Scope** — Stay within the task's scope. Do not modify files not listed unless necessary for the feature to work.
+
+Task files are in `.cursor/agents/`:
+- AGENT_01_CLOSE_LUNCH_CONFIRM.md
+- AGENT_02_PROFILE_FIELD_LABELS.md
+- AGENT_03_SAFETY_TIPS.md
+- AGENT_04_USER_RANKING.md
+- AGENT_05_VISIBILITY_FILTERING.md
+- AGENT_06_COHOST.md
+- AGENT_07_DIRECT_INVITES.md
+- AGENT_08_SOCIAL_AUTH.md

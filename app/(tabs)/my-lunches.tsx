@@ -1,23 +1,28 @@
-import {
-  Button,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
-import { Linking } from "react-native";
-import { useState } from "react";
 import { useRouter } from "expo-router";
+import { useState } from "react";
+import {
+    Alert,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
+} from "react-native";
+import RateAttendeeModal from "../../components/RateAttendeeModal";
+import { Colors, Radius, Shadows, Spacing, Typography } from "../../constants/theme";
 import { useAuth } from "../../src/AuthContext";
 import { useLunches } from "../../src/LunchContext";
 
 export default function MyLunchesScreen() {
   const router = useRouter();
-  const { lunches, loading, acceptRequest, denyRequest, closeLunch } = useLunches();
+  const { lunches, loading, acceptRequest, denyRequest, closeLunch, submitRating, fetchLunches } = useLunches();
   const { user } = useAuth();
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
-
+  const [ratingModal, setRatingModal] = useState<{ lunchId: string; attendeeId: string; attendeeName: string } | null>(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
   if (loading) {
     return (
       <View style={styles.center}>
@@ -27,13 +32,13 @@ export default function MyLunchesScreen() {
   }
 
   const myLunches = lunches.filter(
-    (lunch) => lunch.host_id === user?.id
+    (lunch) => lunch.host_id === user?.id || lunch.co_host_id === user?.id
   );
 
   if (myLunches.length === 0) {
     return (
       <View style={styles.center}>
-        <Text>You are not hosting any lunches.</Text>
+        <Text>You are not hosting or co-hosting any lunches.</Text>
       </View>
     );
   }
@@ -56,25 +61,27 @@ export default function MyLunchesScreen() {
     }
   }
 
-  // Create Google Maps URL
-  const getGoogleMapsUrl = (lunch: any) => {
-    if (lunch.place_id) {
-      return `https://www.google.com/maps/place/?q=place_id:${lunch.place_id}`;
-    } else if (lunch.restaurant_address) {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lunch.restaurant_address)}`;
-    } else {
-      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lunch.restaurant)}`;
-    }
+  const isLunchPast = (dateTime: string) => new Date(dateTime) < new Date();
+
+  // Link to Google Search results for this restaurant
+  const getGoogleSearchUrl = (lunch: any) => {
+    const query = lunch.restaurant_address
+      ? `${lunch.restaurant} ${lunch.restaurant_address}`
+      : lunch.restaurant;
+    return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       {myLunches.map((lunch) => (
         <View key={lunch.id} style={styles.card}>
           <Pressable
-            onPress={() => Linking.openURL(getGoogleMapsUrl(lunch))}
+            onPress={() => Linking.openURL(getGoogleSearchUrl(lunch))}
           >
             <Text style={styles.titleLink}>{lunch.restaurant}</Text>
+            {lunch.restaurant_address ? (
+              <Text style={styles.restaurantAddress}>{lunch.restaurant_address}</Text>
+            ) : null}
           </Pressable>
           <Text style={styles.dateTime}>{formatDateTime(lunch.date_time)}</Text>
           <View style={styles.hostContainer}>
@@ -87,6 +94,18 @@ export default function MyLunchesScreen() {
               </Text>
             </Pressable>
           </View>
+          {lunch.co_host_id && (
+            <View style={styles.hostContainer}>
+              <Text style={styles.hostLabel}>Co-host: </Text>
+              <Pressable
+                onPress={() => router.push(`/profile/${lunch.co_host_id}`)}
+              >
+                <Text style={styles.hostLink}>
+                  {lunch.co_host_profile?.name || "Unknown user"}
+                </Text>
+              </Pressable>
+            </View>
+          )}
           <Text style={styles.seats}>Seats left: {lunch.seats}</Text>
 
           {/* Pending Requests */}
@@ -169,155 +188,233 @@ export default function MyLunchesScreen() {
             {lunch.lunch_attendees
               .filter((a) => a.status === "accepted" || !a.status)
               .map((a) => (
-                <Pressable
-                  key={a.id}
-                  onPress={() => router.push(`/profile/${a.user_id}`)}
-                >
-                  <Text style={styles.attendeeItemLink}>
-                    • {a.profile?.name ?? "Unknown user"}
-                  </Text>
-                </Pressable>
+                <View key={a.id} style={styles.attendeeRow}>
+                  <Pressable
+                    onPress={() => router.push(`/profile/${a.user_id}`)}
+                    style={{ flex: 1 }}
+                  >
+                    <Text style={styles.attendeeItemLink}>
+                      • {a.profile?.name ?? "Unknown user"}
+                    </Text>
+                  </Pressable>
+                  {isLunchPast(lunch.date_time) && (
+                    <Pressable
+                      style={styles.rateButton}
+                      onPress={() => setRatingModal({
+                        lunchId: lunch.id,
+                        attendeeId: a.user_id!,
+                        attendeeName: a.profile?.name ?? "Unknown user",
+                      })}
+                    >
+                      <Text style={styles.rateButtonText}>Rate</Text>
+                    </Pressable>
+                  )}
+                </View>
               ))}
           </View>
 
           <View style={styles.buttonContainer}>
-            <Button
-              title="Open Chat"
+            <Pressable
+              style={styles.chatButton}
               onPress={() => router.push({
                 pathname: "/(tabs)/chat",
                 params: { lunchId: lunch.id }
               })}
-            />
+            >
+              <Text style={styles.chatButtonText}>Open Chat</Text>
+            </Pressable>
             <View style={styles.buttonSpacer} />
-            <Button
-              title="Close Lunch"
-              color="#c62828"
-              onPress={() => closeLunch(lunch)}
-            />
+            <Pressable
+              style={styles.closeButton}
+              onPress={() => {
+                if (Platform.OS === "web") {
+                  if (window.confirm("Are you sure you want to close this lunch meet? This cannot be undone.")) {
+                    closeLunch(lunch);
+                  }
+                } else {
+                  Alert.alert(
+                    "Close Lunch",
+                    "Are you sure you want to close this lunch meet? This cannot be undone.",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Close Lunch",
+                        style: "destructive",
+                        onPress: () => closeLunch(lunch),
+                      },
+                    ]
+                  );
+                }
+              }}
+            >
+              <Text style={styles.closeButtonText}>Close Lunch</Text>
+            </Pressable>
           </View>
         </View>
       ))}
+
+      <RateAttendeeModal
+        visible={!!ratingModal}
+        attendeeName={ratingModal?.attendeeName ?? ""}
+        rating={ratingValue}
+        onRatingChange={setRatingValue}
+        onSubmit={async () => {
+          if (!ratingModal) return;
+          setRatingSubmitting(true);
+          const ok = await submitRating(ratingModal.attendeeId, ratingModal.lunchId, ratingValue);
+          setRatingSubmitting(false);
+          if (ok) {
+            setRatingModal(null);
+            setRatingValue(0);
+          }
+        }}
+        onClose={() => {
+          setRatingModal(null);
+          setRatingValue(0);
+        }}
+        submitting={ratingSubmitting}
+      />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 16 },
+  container: { flex: 1, backgroundColor: Colors.background },
+  scrollContent: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
   card: {
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#ccc",
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderRadius: Radius.lg,
+    marginBottom: Spacing.md,
+    ...Shadows.card,
   },
-  title: { fontSize: 18, fontWeight: "600" },
+  title: { ...Typography.titleSmall },
   titleLink: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#0066cc",
-    textDecorationLine: "underline",
+    ...Typography.titleSmall,
+    color: Colors.link,
+  },
+  restaurantAddress: {
+    ...Typography.bodySecondary,
+    marginTop: 2,
   },
   dateTime: { 
-    fontSize: 14, 
-    color: "#666", 
+    ...Typography.bodySecondary,
     marginTop: 4,
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
   hostContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: Spacing.sm,
   },
-  hostLabel: {
-    fontSize: 14,
-    color: "#666",
-  },
+  hostLabel: { ...Typography.bodySecondary },
   hostLink: {
-    fontSize: 14,
-    color: "#0066cc",
-    textDecorationLine: "underline",
+    ...Typography.bodySecondary,
+    color: Colors.link,
     fontWeight: "500",
   },
   seats: {
-    fontSize: 14,
-    color: "#666",
+    ...Typography.bodySecondary,
     marginBottom: 4,
   },
-  attendees: { marginTop: 12 },
-  attendeeTitle: { fontWeight: "600" },
-  attendeeItem: { fontSize: 12 },
+  attendees: { marginTop: Spacing.md },
+  attendeeTitle: { ...Typography.label },
+  attendeeItem: { ...Typography.caption },
+  attendeeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.xs,
+  },
   attendeeItemLink: {
+    ...Typography.caption,
+    color: Colors.link,
+  },
+  rateButton: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: Radius.sm,
+  },
+  rateButtonText: {
     fontSize: 12,
-    color: "#0066cc",
-    textDecorationLine: "underline",
+    fontWeight: "600",
+    color: Colors.primary,
   },
   pendingContainer: {
-    marginTop: 12,
-    marginBottom: 12,
-    padding: 12,
-    backgroundColor: "#fff3cd",
-    borderRadius: 8,
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+    backgroundColor: Colors.warningBg,
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: "#ffc107",
+    borderColor: Colors.warning,
   },
   pendingTitle: {
     fontWeight: "600",
-    marginBottom: 8,
-    color: "#856404",
+    marginBottom: Spacing.sm,
+    color: "#92400e",
   },
   pendingRequest: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: Spacing.sm,
+    paddingBottom: Spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: "#ffc107",
+    borderBottomColor: Colors.warning,
   },
-  pendingName: {
-    flex: 1,
-    fontSize: 14,
-  },
+  pendingName: { flex: 1, fontSize: 14 },
   pendingNameLink: {
     flex: 1,
     fontSize: 14,
-    color: "#0066cc",
-    textDecorationLine: "underline",
+    color: Colors.link,
     fontWeight: "500",
   },
-  requestButtons: {
-    flexDirection: "row",
-    gap: 8,
-  },
+  requestButtons: { flexDirection: "row", gap: Spacing.sm },
   requestButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.md,
   },
-  acceptButton: {
-    backgroundColor: "#28a745",
-  },
-  denyButton: {
-    backgroundColor: "#dc3545",
-  },
+  acceptButton: { backgroundColor: Colors.success },
+  denyButton: { backgroundColor: Colors.destructive },
   requestButtonText: {
     color: "#fff",
     fontWeight: "600",
     fontSize: 12,
   },
-  requestButtonDisabled: {
-    opacity: 0.6,
+  requestButtonDisabled: { opacity: 0.6 },
+  buttonContainer: { marginTop: Spacing.sm, marginBottom: 4 },
+  buttonSpacer: { height: Spacing.sm },
+  chatButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+    alignSelf: "flex-start",
   },
-  buttonContainer: {
-    marginTop: 12,
+  chatButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
   },
-  buttonSpacer: {
-    height: 8,
+  closeButton: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.destructive,
+    borderRadius: Radius.md,
+    alignSelf: "flex-start",
+  },
+  closeButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
   },
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: Colors.background,
   },
 });
 

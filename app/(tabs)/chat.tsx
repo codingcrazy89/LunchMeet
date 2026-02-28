@@ -1,18 +1,23 @@
-import { useEffect, useState, useRef } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
-} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { supabase } from "../../src/lib/supabase";
+import { useEffect, useRef, useState } from "react";
+import {
+    Keyboard,
+    KeyboardAvoidingView,
+    Linking,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import ProfilePhotoImage from "../../components/ProfilePhotoImage";
+import { Colors, Radius, Spacing, Typography } from "../../constants/theme";
 import { useAuth } from "../../src/AuthContext";
+import { supabase } from "../../src/lib/supabase";
+import { preparePhotosForDisplay } from "../../src/utils/photoUrls";
 
 type Message = {
   id: string;
@@ -26,7 +31,8 @@ type Message = {
 };
 
 export default function ChatScreen() {
-  const { lunchId } = useLocalSearchParams<{ lunchId: string }>();
+  const params = useLocalSearchParams<{ lunchId: string }>();
+  const lunchId = typeof params.lunchId === "string" ? params.lunchId : Array.isArray(params.lunchId) ? params.lunchId?.[0] : undefined;
   const { user } = useAuth();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -36,18 +42,33 @@ export default function ChatScreen() {
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string | null>(null);
   const [lunchDetails, setLunchDetails] = useState<any>(null);
   const [attendees, setAttendees] = useState<any[]>([]);
+  const [canAccessChat, setCanAccessChat] = useState<boolean | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
-    if (!lunchId) return;
-
-    loadChatRoom();
+    if (!lunchId) {
+      setLoading(false);
+      setCanAccessChat(false);
+      return;
+    }
     loadCurrentUserPhoto();
     loadLunchDetails();
-    return () => {
-      // Cleanup subscription
-    };
   }, [lunchId, user?.id]);
+
+  // Only load chat room when user is allowed (host or accepted attendee)
+  useEffect(() => {
+    if (!lunchId || canAccessChat !== true) {
+      if (canAccessChat === false) {
+        setChatRoomId(null);
+        setMessages([]);
+      }
+      return;
+    }
+    loadChatRoom();
+  }, [lunchId, canAccessChat]);
 
   const loadCurrentUserPhoto = async () => {
     if (!user?.id) return;
@@ -59,13 +80,17 @@ export default function ChatScreen() {
       .single();
 
     if (profile?.photos && Array.isArray(profile.photos) && profile.photos.length > 0) {
-      setCurrentUserPhoto(profile.photos[0]);
+      const prepared = await preparePhotosForDisplay([profile.photos[0]]);
+      setCurrentUserPhoto(prepared[0]);
     }
   };
 
   const loadLunchDetails = async () => {
-    if (!lunchId) return;
-
+    if (!lunchId) {
+      setLoading(false);
+      return;
+    }
+    try {
     // Fetch lunch details
     const { data: lunch, error: lunchError } = await supabase
       .from("lunches")
@@ -76,6 +101,7 @@ export default function ChatScreen() {
         place_id,
         date_time,
         host_id,
+        co_host_id,
         lunch_attendees (
           id,
           user_id,
@@ -91,18 +117,25 @@ export default function ChatScreen() {
 
     if (lunchError || !lunch) {
       console.error("Error loading lunch details:", lunchError);
+      setCanAccessChat(false);
+      setLoading(false);
       return;
     }
 
     setLunchDetails(lunch);
 
-    // Get accepted attendees
+    // Only host, co-host, or accepted attendees can access this chat
     const acceptedAttendeeIds = (lunch.lunch_attendees || [])
       .filter((a: any) => a.status === "accepted" || !a.status)
       .map((a: any) => a.user_id);
+    const isHost = lunch.host_id === user?.id;
+    const isCoHost = lunch.co_host_id === user?.id;
+    const isAcceptedAttendee = user?.id && acceptedAttendeeIds.includes(user.id);
+    setCanAccessChat(!!(isHost || isCoHost || isAcceptedAttendee));
 
-    // Include host in the list
-    const allParticipantIds = [...new Set([lunch.host_id, ...acceptedAttendeeIds])];
+    // Get accepted attendees (reuse acceptedAttendeeIds from above)
+    // Include host and co-host in the list
+    const allParticipantIds = [...new Set([lunch.host_id, lunch.co_host_id, ...acceptedAttendeeIds])].filter(Boolean);
 
     // Fetch all attendee profiles
     const { data: attendeeProfiles } = await supabase
@@ -110,23 +143,31 @@ export default function ChatScreen() {
       .select("id, name")
       .in("id", allParticipantIds);
 
-    // Map to include host first, then others
-    const attendeesList = [];
-    if (attendeeProfiles) {
-      // Add host first
+    // Map to include host first, then co-host, then others
+    const attendeesList: { id: string; name: string }[] = [];
+    if (attendeeProfiles && attendeeProfiles.length > 0) {
       const host = attendeeProfiles.find((p: any) => p.id === lunch.host_id);
       if (host) {
-        attendeesList.push({ id: host.id, name: host.name });
+        attendeesList.push({ id: host.id, name: host.name ?? "Unknown" });
       }
-      // Add other attendees
+      const coHost = lunch.co_host_id ? attendeeProfiles.find((p: any) => p.id === lunch.co_host_id) : null;
+      if (coHost) {
+        attendeesList.push({ id: coHost.id, name: coHost.name ?? "Unknown" });
+      }
       attendeeProfiles
-        .filter((p: any) => p.id !== lunch.host_id)
+        .filter((p: any) => p.id !== lunch.host_id && p.id !== lunch.co_host_id)
         .forEach((p: any) => {
-          attendeesList.push({ id: p.id, name: p.name });
+          attendeesList.push({ id: p.id, name: p.name ?? "Unknown" });
         });
     }
 
     setAttendees(attendeesList);
+    } catch (err) {
+      console.error("Error loading chat:", err);
+      setCanAccessChat(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -135,6 +176,30 @@ export default function ChatScreen() {
     loadMessages();
     subscribeToMessages();
   }, [chatRoomId]);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        setKeyboardVisible(true);
+        setTimeout(() => {
+          scrollViewRef.current?.scrollToEnd({ animated: true });
+        }, Platform.OS === "ios" ? 350 : 100);
+      }
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => {
+        setKeyboardHeight(0);
+        setKeyboardVisible(false);
+      }
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const loadChatRoom = async () => {
     if (!lunchId) return;
@@ -273,11 +338,13 @@ export default function ChatScreen() {
             .eq("id", payload.new.sender_id)
             .single();
 
+          const rawPhotos = profileData
+            ? (Array.isArray(profileData.photos) ? profileData.photos : (profileData.photos ? [profileData.photos] : []))
+            : [];
+          const photos = rawPhotos.length > 0 ? await preparePhotosForDisplay(rawPhotos) : [];
           const normalizedProfile = profileData ? {
             name: profileData.name,
-            photos: Array.isArray(profileData.photos) 
-              ? profileData.photos 
-              : (profileData.photos ? [profileData.photos] : [])
+            photos
           } : null;
 
           const newMessage: Message = {
@@ -398,19 +465,12 @@ export default function ChatScreen() {
     }
   };
 
-  const openRestaurantInMaps = () => {
+  const openRestaurantInGoogle = () => {
     if (!lunchDetails) return;
-    
-    let url = "";
-    if (lunchDetails.place_id) {
-      url = `https://www.google.com/maps/place/?q=place_id:${lunchDetails.place_id}`;
-    } else if (lunchDetails.restaurant_address) {
-      url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lunchDetails.restaurant_address)}`;
-    } else {
-      url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(lunchDetails.restaurant)}`;
-    }
-    
-    Linking.openURL(url);
+    const query = lunchDetails.restaurant_address
+      ? `${lunchDetails.restaurant} ${lunchDetails.restaurant_address}`
+      : lunchDetails.restaurant;
+    Linking.openURL(`https://www.google.com/search?q=${encodeURIComponent(query)}`);
   };
 
   if (loading) {
@@ -421,19 +481,42 @@ export default function ChatScreen() {
     );
   }
 
-  return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={90}
-    >
-      {/* Lunch Details Header */}
-      {lunchDetails && (
+  // User left or is not part of this lunch — hide chat and show message
+  if (canAccessChat === false) {
+    return (
+      <View style={styles.container}>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </Pressable>
+        <View style={styles.accessDeniedContainer}>
+          <Text style={styles.accessDeniedText}>
+            You're no longer part of this lunch. You can request to join again from the lunch listing.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const isAndroid = Platform.OS === "android";
+  const hideHeader = isAndroid && keyboardVisible;
+
+  const chatContent = (
+    <>
+      {/* Back Button */}
+      <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Text style={styles.backButtonText}>← Back</Text>
+      </Pressable>
+
+      {/* Lunch Details Header — hidden on Android when keyboard is open */}
+      {lunchDetails && !hideHeader && (
         <View style={styles.headerContainer}>
-          <Pressable onPress={openRestaurantInMaps}>
+          <Pressable onPress={openRestaurantInGoogle}>
             <Text style={styles.restaurantName}>
               {lunchDetails.restaurant}
             </Text>
+            {lunchDetails.restaurant_address ? (
+              <Text style={styles.restaurantAddress}>{lunchDetails.restaurant_address}</Text>
+            ) : null}
           </Pressable>
           <Text style={styles.dateTime}>
             {formatDateTime(lunchDetails.date_time)}
@@ -443,25 +526,39 @@ export default function ChatScreen() {
               Attendees ({attendees.length}):
             </Text>
             <View style={styles.attendeesRow}>
-              {attendees.map((attendee) => (
+              {attendees.map((attendee, idx) => (
                 <Pressable
-                  key={attendee.id}
-                  onPress={() => router.push(`/profile/${attendee.id}`)}
+                  key={attendee.id ?? `attendee-${idx}`}
+                  onPress={() => attendee.id && router.push(`/profile/${attendee.id}`)}
                   style={styles.attendeeChip}
                 >
-                  <Text style={styles.attendeeChipText}>{attendee.name}</Text>
+                  <Text style={styles.attendeeChipText}>{attendee.name ?? "Unknown"}</Text>
                 </Pressable>
               ))}
             </View>
           </View>
         </View>
       )}
+      {/* Compact header on Android when keyboard is open */}
+      {lunchDetails && hideHeader && (
+        <View style={styles.headerCompact}>
+          <Text style={styles.headerCompactText} numberOfLines={1}>
+            {lunchDetails.restaurant}
+          </Text>
+        </View>
+      )}
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
-      >
+      <View style={styles.messagesWrapper}>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={[
+            styles.messagesContent,
+            messages.length === 0 && styles.messagesContentEmpty,
+          ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="none"
+        >
         {messages.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No messages yet. Start the conversation!</Text>
@@ -471,7 +568,7 @@ export default function ChatScreen() {
             const isOwnMessage = msg.sender_id === user?.id;
             const senderPhoto = msg.sender_profile?.photos?.[0];
             const senderName = msg.sender_profile?.name || "Unknown";
-            
+
             return (
               <View
                 key={msg.id}
@@ -483,7 +580,7 @@ export default function ChatScreen() {
                 {!isOwnMessage && (
                   <View style={styles.otherMessageHeader}>
                     {senderPhoto ? (
-                      <Image source={{ uri: senderPhoto }} style={styles.avatar} />
+                      <ProfilePhotoImage source={{ uri: senderPhoto }} style={styles.avatar} />
                     ) : (
                       <View style={[styles.avatar, styles.avatarPlaceholder]}>
                         <Text style={styles.avatarText}>
@@ -498,7 +595,7 @@ export default function ChatScreen() {
                   <View style={styles.ownMessageHeader}>
                     <Text style={styles.ownSenderName}>You</Text>
                     {currentUserPhoto ? (
-                      <Image source={{ uri: currentUserPhoto }} style={styles.avatar} />
+                      <ProfilePhotoImage source={{ uri: currentUserPhoto }} style={styles.avatar} />
                     ) : (
                       <View style={[styles.avatar, styles.avatarPlaceholder]}>
                         <Text style={styles.avatarText}>Y</Text>
@@ -533,14 +630,23 @@ export default function ChatScreen() {
             );
           })
         )}
-      </ScrollView>
+        </ScrollView>
+      </View>
 
-      <View style={styles.inputContainer}>
+      <View
+        style={[
+          styles.inputContainer,
+          { paddingBottom: keyboardVisible ? 6 : 6 + insets.bottom },
+        ]}
+      >
         <TextInput
           style={styles.input}
           placeholder="Type a message..."
           value={newMessage}
           onChangeText={setNewMessage}
+          onFocus={() => {
+            setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), isAndroid ? 150 : 400);
+          }}
           multiline
           onSubmitEditing={sendMessage}
         />
@@ -552,6 +658,20 @@ export default function ChatScreen() {
           <Text style={styles.sendButtonText}>Send</Text>
         </Pressable>
       </View>
+    </>
+  );
+
+  if (isAndroid) {
+    return <View style={styles.container}>{chatContent}</View>;
+  }
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior="padding"
+      keyboardVerticalOffset={insets.top + 88}
+    >
+      {chatContent}
     </KeyboardAvoidingView>
   );
 }
@@ -559,78 +679,116 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: Colors.background,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: Colors.link,
+  },
+  accessDeniedContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xxl,
+  },
+  accessDeniedText: {
+    ...Typography.body,
+    color: Colors.textSecondary,
+    textAlign: "center",
   },
   headerContainer: {
-    backgroundColor: "#fff",
-    padding: 16,
+    backgroundColor: Colors.surface,
+    padding: Spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: Colors.borderLight,
+  },
+  headerCompact: {
+    backgroundColor: Colors.surface,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.borderLight,
+  },
+  headerCompactText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: Colors.text,
   },
   restaurantName: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#0066cc",
-    textDecorationLine: "underline",
+    color: Colors.link,
     marginBottom: 4,
   },
+  restaurantAddress: {
+    ...Typography.bodySecondary,
+    marginTop: 2,
+  },
   dateTime: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 12,
+    ...Typography.bodySecondary,
+    marginBottom: Spacing.md,
   },
-  attendeesList: {
-    marginTop: 8,
-  },
+  attendeesList: { marginTop: Spacing.sm },
   attendeesLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 8,
+    ...Typography.label,
+    marginBottom: Spacing.sm,
   },
   attendeesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: Spacing.sm,
   },
   attendeeChip: {
-    backgroundColor: "#e3f2fd",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.pill,
     borderWidth: 1,
-    borderColor: "#0066cc",
+    borderColor: Colors.primary,
   },
   attendeeChipText: {
     fontSize: 12,
-    color: "#0066cc",
-    fontWeight: "500",
+    color: Colors.primary,
+    fontWeight: "600",
+  },
+  messagesWrapper: {
+    flex: 1,
+    minHeight: 0,
   },
   messagesContainer: {
     flex: 1,
+    minHeight: 0,
   },
   messagesContent: {
-    padding: 16,
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    padding: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  messagesContentEmpty: {
+    justifyContent: "flex-end",
   },
   emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
     alignItems: "center",
-    paddingTop: 100,
+    paddingVertical: Spacing.xl,
   },
   emptyText: {
-    color: "#999",
-    fontSize: 16,
+    ...Typography.body,
+    color: Colors.textMuted,
   },
-  messageWrapper: {
-    marginBottom: 12,
-  },
-  ownMessageWrapper: {
-    alignItems: "flex-end",
-  },
-  otherMessageWrapper: {
-    alignItems: "flex-start",
-  },
+  messageWrapper: { marginBottom: Spacing.md },
+  ownMessageWrapper: { alignItems: "flex-end" },
+  otherMessageWrapper: { alignItems: "flex-start" },
   otherMessageHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -641,10 +799,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
   avatarPlaceholder: {
-    backgroundColor: "#0066cc",
+    backgroundColor: Colors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -654,8 +812,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   senderName: {
-    fontSize: 12,
-    color: "#666",
+    ...Typography.caption,
     fontWeight: "600",
   },
   ownMessageHeader: {
@@ -666,75 +823,73 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   ownSenderName: {
-    fontSize: 12,
-    color: "#666",
+    ...Typography.caption,
     fontWeight: "600",
-    marginRight: 8,
+    marginRight: Spacing.sm,
   },
   messageBubble: {
     maxWidth: "75%",
-    padding: 12,
-    borderRadius: 16,
+    padding: Spacing.md,
+    borderRadius: Radius.lg,
   },
   ownMessage: {
-    backgroundColor: "#0066cc",
+    backgroundColor: Colors.primary,
     borderBottomRightRadius: 4,
   },
   otherMessage: {
-    backgroundColor: "#fff",
+    backgroundColor: Colors.surface,
     borderBottomLeftRadius: 4,
   },
   messageText: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 22,
   },
-  ownMessageText: {
-    color: "#fff",
-  },
-  otherMessageText: {
-    color: "#000",
-  },
+  ownMessageText: { color: "#fff" },
+  otherMessageText: { color: Colors.text },
   messageTime: {
     fontSize: 10,
     marginTop: 4,
   },
   ownMessageTime: {
-    color: "rgba(255, 255, 255, 0.7)",
+    color: "rgba(255, 255, 255, 0.75)",
   },
   otherMessageTime: {
-    color: "#999",
+    color: Colors.textMuted,
   },
   inputContainer: {
     flexDirection: "row",
-    padding: 12,
-    backgroundColor: "#fff",
+    paddingVertical: 6,
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.surface,
     borderTopWidth: 1,
-    borderTopColor: "#e0e0e0",
-    alignItems: "flex-end",
+    borderTopColor: Colors.borderLight,
+    alignItems: "center",
   },
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 8,
-    maxHeight: 100,
+    borderColor: Colors.border,
+    borderRadius: Radius.pill,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 6,
+    marginRight: Spacing.sm,
+    minHeight: 36,
+    maxHeight: 60,
     fontSize: 15,
+    backgroundColor: Colors.background,
   },
   sendButton: {
-    backgroundColor: "#0066cc",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
+    backgroundColor: Colors.primary,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
   },
   sendButtonDisabled: {
-    backgroundColor: "#ccc",
+    backgroundColor: Colors.textMuted,
   },
   sendButtonText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 15,
+    fontSize: 14,
   },
 });

@@ -1,0 +1,10 @@
+services:
+  - type: web
+    runtime: node
+    name: lunchmeet-places-proxy
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node places-proxy.js
+    envVars:
+      - key: GOOGLE_PLACES_API_KEY
+        sync: false

@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start Proxy Server",
+      "type": "shell",
+      "command": "npm run proxy",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "mobile"
+      }
+    },
+    {
+      "label": "Start Expo (Mobile)",
+      "type": "shell",
+      "command": "npm start",
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "group": "mobile"
+      }
+    },
+    {
+      "label": "Start Mobile Development",
+      "dependsOn": ["Start Proxy Server", "Start Expo (Mobile)"],
+      "dependsOrder": "parallel"
+    }
+  ]
+}

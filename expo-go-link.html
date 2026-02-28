@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Open LunchMeet in Expo Go</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 360px; margin: 2rem auto; padding: 1rem; text-align: center; }
+    a { display: inline-block; margin: 1rem 0; padding: 1rem 2rem; background: #0d9488; color: #fff; text-decoration: none; border-radius: 8px; font-weight: 600; }
+    a:active { opacity: 0.9; }
+    p { color: #666; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <h1>LunchMeet</h1>
+  <p>Tap the button below to open in Expo Go. Your phone must be on the same Wi‑Fi as your computer.</p>
+  <a id="link" href="">Open in Expo Go</a>
+  <script>
+    var port = "8082";
+    var host = window.location.hostname;
+    var url = "exp://" + host + ":" + port;
+    document.getElementById("link").href = url;
+    document.getElementById("link").textContent = "Open in Expo Go";
+  </script>
+</body>
+</html>

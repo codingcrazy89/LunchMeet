@@ -12,12 +12,10 @@ const supabaseAnonKey =
   Constants.expoConfig?.extra?.supabaseAnonKey ||
   ""
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error("Missing Supabase configuration. Please check your .env file.")
+export const hasSupabaseConfig = !!(supabaseUrl && supabaseAnonKey)
+if (!hasSupabaseConfig) {
+  console.error("Missing Supabase configuration. Set EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY (e.g. in EAS secrets or .env).")
 }
 
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey
-)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 

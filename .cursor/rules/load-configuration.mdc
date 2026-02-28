@@ -1,0 +1,27 @@
+---
+description: When the user asks to load a saved configuration, run the corresponding script.
+globs:
+alwaysApply: false
+---
+
+# Load configuration
+
+When the user says **"Load configuration 1"** (or "load configuration 1", "Configuration 1", etc.):
+
+1. Run the Configuration 1 setup script in a **Windows PowerShell** terminal (not Cursor):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File "c:\Users\jpmit\Code\LunchMeet\scripts\load-configuration-1.ps1"
+   ```
+2. The script:
+   - Kills stale node/cloudflared processes
+   - Opens a **PLACES PROXY** PowerShell window (port 8787)
+   - Opens a **METRO BUNDLER** PowerShell window (port 8081)
+   - Starts two Cloudflare tunnels (proxy + Metro) and updates `.env`
+   - Generates a QR code at `expo-go-qr.png`
+   - Prints the shareable `exps://` URL
+3. After the script completes, show the user:
+   - The shareable URL from the script output
+   - The QR code image (`expo-go-qr.png`)
+   - Instructions: friend needs Expo Go → "Enter URL manually" → paste URL, or scan QR
+
+Configuration details: **CONFIGURATIONS.md** in project root.

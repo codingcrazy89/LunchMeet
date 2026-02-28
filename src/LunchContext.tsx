@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { Alert } from "react-native";
 import { useAuth } from "./AuthContext";
 import { supabase } from "./lib/supabase";
 
@@ -23,9 +24,16 @@ export type LunchMeet = {
   description: string;
   host_id: string;
   host_profile: Profile | null;
+  co_host_profile?: Profile | null;
   lunch_attendees: Attendee[];
   place_id?: string;
   restaurant_address?: string;
+  latitude?: number;
+  longitude?: number;
+  visibility_gender?: string[] | null;
+  visibility_looking_for?: string[] | null;
+  co_host_id?: string | null;
+  is_public?: boolean | null;
 };
 
 type LunchContextType = {
@@ -40,8 +48,15 @@ type LunchContextType = {
   joinLunch: (lunch: LunchMeet) => Promise<boolean>;
   acceptRequest: (lunchId: string, attendeeId: string) => Promise<void>;
   denyRequest: (lunchId: string, attendeeId: string) => Promise<void>;
+  leaveLunch: (lunchId: string) => Promise<void>;
   closeLunch: (lunch: LunchMeet) => Promise<void>;
+  submitRating: (ratedId: string, lunchId: string, rating: number) => Promise<boolean>;
+  invites: Array<{ id: string; lunch_id: string; lunch: LunchMeet; inviter_profile: Profile | null }>;
+  acceptInvite: (inviteId: string) => Promise<void>;
+  declineInvite: (inviteId: string) => Promise<void>;
   fetchLunches: () => Promise<void>;
+  fetchInvites: () => Promise<void>;
+  version: number;
 };
 
 const LunchContext = createContext<LunchContextType | undefined>(undefined);
@@ -49,9 +64,12 @@ const LunchContext = createContext<LunchContextType | undefined>(undefined);
 export function LunchProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [lunches, setLunches] = useState<LunchMeet[]>([]);
+  const [invites, setInvites] = useState<Array<{ id: string; lunch_id: string; lunch: LunchMeet; inviter_profile: Profile | null }>>([]);
   const [loading, setLoading] = useState(true);
+  const [version, setVersion] = useState(0);
 
   const fetchLunches = async () => {
+    try {
     const { data, error } = await supabase
       .from("lunches")
       .select(`
@@ -63,6 +81,12 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
         host_id,
         place_id,
         restaurant_address,
+        latitude,
+        longitude,
+        visibility_gender,
+        visibility_looking_for,
+        co_host_id,
+        is_public,
         lunch_attendees (
           id,
           user_id,
@@ -83,8 +107,8 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Fetch host profiles separately
-    const hostIds = [...new Set((data ?? []).map((lunch: any) => lunch.host_id))]
+    // Fetch host and co-host profiles separately
+    const hostIds = [...new Set((data ?? []).flatMap((lunch: any) => [lunch.host_id, lunch.co_host_id].filter(Boolean)))]
     const { data: hostProfiles } = await supabase
       .from("profiles")
       .select("id, name, age")
@@ -116,6 +140,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
     const normalized: LunchMeet[] = (data ?? []).map((lunch: any) => ({
       ...lunch,
       host_profile: hostProfileMap.get(lunch.host_id) || null,
+      co_host_profile: lunch.co_host_id ? hostProfileMap.get(lunch.co_host_id) || null : null,
       lunch_attendees: (lunch.lunch_attendees ?? []).map((a: any) => {
         // Try to get profile from the relationship first, then fall back to separate fetch
         const profileFromRelation = a.profiles?.[0] || (Array.isArray(a.profiles) ? a.profiles[0] : a.profiles)
@@ -130,13 +155,160 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       }),
     }));
 
-    setLunches(normalized);
+    console.log("fetchLunches: Setting lunches state with", normalized.length, "lunches");
+    
+    // Log attendee counts for debugging
+    normalized.forEach((lunch) => {
+      const attendeeCount = lunch.lunch_attendees?.length || 0;
+      const acceptedAttendees = lunch.lunch_attendees?.filter(
+        (a: any) => a.status === "accepted" || !a.status
+      ) || [];
+      console.log(`  Lunch ${lunch.id}: ${attendeeCount} total attendees, ${acceptedAttendees.length} accepted`);
+    });
+    
+    // Apply visibility filter: if lunch has visibility rules, only show to matching users
+    let filtered = normalized;
+    if (!user) {
+      // No user: hide private lunches
+      filtered = normalized.filter((lunch: any) => lunch.is_public !== false);
+    } else {
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("gender, looking_for")
+        .eq("id", user.id)
+        .single();
+
+      const myGender = (myProfile?.gender || "").toLowerCase().trim();
+      const myLookingFor = Array.isArray(myProfile?.looking_for) ? myProfile.looking_for : [];
+
+      filtered = normalized.filter((lunch: any) => {
+        // Host and co-host always see their own lunch
+        if (lunch.host_id === user.id || lunch.co_host_id === user.id) return true;
+
+        // Private lunches: only show to accepted attendees (invited users see via invites section)
+        if (lunch.is_public === false) {
+          const isAccepted = (lunch.lunch_attendees || []).some(
+            (a: any) => a.user_id === user.id && (a.status === "accepted" || !a.status)
+          );
+          return isAccepted;
+        }
+
+        const vGender = lunch.visibility_gender;
+        const vLookingFor = lunch.visibility_looking_for;
+
+        if (vGender && Array.isArray(vGender) && vGender.length > 0) {
+          const normalizedVGender = vGender.map((g: string) => (g || "").toLowerCase().trim());
+          if (myGender && !normalizedVGender.includes(myGender)) return false;
+          if (!myGender) return false; // No gender set = no match
+        }
+        if (vLookingFor && Array.isArray(vLookingFor) && vLookingFor.length > 0) {
+          const hasOverlap = myLookingFor.some((lf: string) => vLookingFor.includes(lf));
+          if (!hasOverlap) return false;
+        }
+        return true;
+      });
+    }
+
+    // Create a completely new array with deep copies to ensure React detects the change
+    const newLunches = filtered.map((lunch: any) => ({
+      ...lunch,
+      lunch_attendees: (lunch.lunch_attendees || []).map((a: any) => ({ ...a }))
+    }));
+    setLunches(newLunches);
     setLoading(false);
+    setVersion((v) => v + 1);
+    if (user) fetchInvites();
+    } catch (err) {
+      console.warn("fetchLunches network error:", err);
+      setLunches([]);
+      setLoading(false);
+    }
+  };
+
+  const fetchInvites = async () => {
+    if (!user) {
+      setInvites([]);
+      return;
+    }
+    try {
+    const { data: inviteData, error } = await supabase
+      .from("lunch_invites")
+      .select("id, lunch_id")
+      .eq("invitee_id", user.id)
+      .eq("status", "pending");
+
+    if (error || !inviteData?.length) {
+      setInvites([]);
+      return;
+    }
+
+    const lunchIds = inviteData.map((i: any) => i.lunch_id);
+    const { data: lunchesData } = await supabase
+      .from("lunches")
+      .select(`
+        id, restaurant, date_time, seats, description, host_id, place_id,
+        restaurant_address, latitude, longitude, visibility_gender, visibility_looking_for, co_host_id, is_public,
+        lunch_attendees (id, user_id, status, profiles (id, name, age))
+      `)
+      .in("id", lunchIds);
+
+    const hostIds = [...new Set((lunchesData ?? []).flatMap((l: any) => [l.host_id, l.co_host_id].filter(Boolean)))];
+    const { data: hostProfiles } = await supabase
+      .from("profiles")
+      .select("id, name, age")
+      .in("id", hostIds);
+    const hostMap = new Map((hostProfiles ?? []).map((p: any) => [p.id, p]));
+
+    const { data: inviteRows } = await supabase
+      .from("lunch_invites")
+      .select("id, lunch_id, inviter_id")
+      .in("id", inviteData.map((i: any) => i.id));
+    const inviterIds = [...new Set((inviteRows ?? []).map((i: any) => i.inviter_id))];
+    const { data: inviterProfiles } = await supabase
+      .from("profiles")
+      .select("id, name, age")
+      .in("id", inviterIds);
+    const inviterMap = new Map((inviterProfiles ?? []).map((p: any) => [p.id, p]));
+
+    const lunchMap = new Map(
+      (lunchesData ?? []).map((l: any) => [
+        l.id,
+        {
+          ...l,
+          host_profile: hostMap.get(l.host_id) || null,
+          co_host_profile: l.co_host_id ? hostMap.get(l.co_host_id) || null : null,
+          lunch_attendees: (l.lunch_attendees ?? []).map((a: any) => ({
+            id: a.id,
+            user_id: a.user_id,
+            status: a.status || "accepted",
+            profile: a.profiles?.[0] || a.profiles,
+          })),
+        },
+      ])
+    );
+
+    const result = (inviteRows ?? []).map((inv: any) => ({
+      id: inv.id,
+      lunch_id: inv.lunch_id,
+      lunch: lunchMap.get(inv.lunch_id),
+      inviter_profile: inviterMap.get(inv.inviter_id) || null,
+    })).filter((x) => x.lunch);
+
+    setInvites(result);
+    } catch (err) {
+      console.warn("fetchInvites network error:", err);
+      setInvites([]);
+    }
   };
 
   useEffect(() => {
     fetchLunches();
   }, []);
+
+  useEffect(() => {
+    if (user) fetchInvites();
+    else setInvites([]);
+  }, [user]);
 
   const addLunch = async (lunch: {
     restaurant: string;
@@ -194,18 +366,18 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
     if (!user) {
       console.error("Cannot accept request: user not logged in");
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("You must be logged in to accept requests.");
       }
       return;
     }
 
     try {
-      // Verify user is the host by querying the database
-      console.log("Step 1: Verifying host...");
+      // Verify user is the host or co-host by querying the database
+      console.log("Step 1: Verifying host or co-host...");
       const { data: lunchData, error: lunchFetchError } = await supabase
         .from("lunches")
-        .select("host_id, seats")
+        .select("host_id, co_host_id, seats")
         .eq("id", lunchId)
         .single();
 
@@ -213,18 +385,19 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
       if (lunchFetchError || !lunchData) {
         console.error("Error fetching lunch:", lunchFetchError);
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Failed to verify lunch: " + (lunchFetchError?.message || "Unknown error"));
         }
         return;
       }
 
-      if (lunchData.host_id !== user.id) {
+      const isHostOrCoHost = lunchData.host_id === user.id || lunchData.co_host_id === user.id;
+      if (!isHostOrCoHost) {
         console.error("Cannot accept request: user is not the host", {
           lunchHostId: lunchData.host_id,
           currentUserId: user.id
         });
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Only the host can accept requests.");
         }
         return;
@@ -279,7 +452,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
       if (!existingAttendee) {
         console.error("Attendee record not found with ID:", attendeeId);
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Request not found. Please refresh the page and try again.");
         }
         await fetchLunches(); // Refresh to get latest data
@@ -291,7 +464,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
           expected: lunchId,
           actual: existingAttendee.lunch_id
         });
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Request does not match this lunch.");
         }
         return;
@@ -299,7 +472,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
       if (existingAttendee.status === "accepted") {
         console.log("Request already accepted");
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("This request has already been accepted.");
         }
         await fetchLunches();
@@ -347,7 +520,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
       if (updateError && !updateWorked) {
         console.error("Error accepting request:", updateError);
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Failed to accept request: " + updateError.message);
         }
         return;
@@ -376,7 +549,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       
       if (verifyError || !verifyUpdate) {
         console.error("Could not verify update:", verifyError);
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Update may have failed. Please refresh and try again.");
         }
         await fetchLunches();
@@ -385,7 +558,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
       if (verifyUpdate.status !== "accepted") {
         console.error("Update did not work - record still has status:", verifyUpdate.status);
-        if (typeof window !== "undefined" && window.alert) {
+        if (typeof window !== "undefined") {
           alert("Update failed. The request status is still: " + verifyUpdate.status + ". This might be a permissions issue. Please check your database Row Level Security policies.");
         }
         await fetchLunches();
@@ -453,7 +626,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       console.log("=== ACCEPT REQUEST COMPLETE ===");
     } catch (err: any) {
       console.error("Unexpected error in acceptRequest:", err);
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("An unexpected error occurred: " + (err.message || String(err)));
       }
     }
@@ -462,31 +635,32 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
   const denyRequest = async (lunchId: string, attendeeId: string) => {
     if (!user) {
       console.error("Cannot deny request: user not logged in");
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("You must be logged in to deny requests.");
       }
       return;
     }
 
-    // Verify user is the host by querying the database
+    // Verify user is the host or co-host by querying the database
     const { data: lunchData, error: lunchFetchError } = await supabase
       .from("lunches")
-      .select("host_id")
+      .select("host_id, co_host_id")
       .eq("id", lunchId)
       .single();
 
     if (lunchFetchError || !lunchData) {
       console.error("Error fetching lunch:", lunchFetchError);
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("Failed to verify lunch. Please try again.");
       }
       return;
     }
 
-    if (lunchData.host_id !== user.id) {
-      console.error("Cannot deny request: user is not the host");
-      if (typeof window !== "undefined" && window.alert) {
-        alert("Only the host can deny requests.");
+    const isHostOrCoHost = lunchData.host_id === user.id || lunchData.co_host_id === user.id;
+    if (!isHostOrCoHost) {
+      console.error("Cannot deny request: user is not the host or co-host");
+      if (typeof window !== "undefined") {
+        alert("Only the host or co-host can deny requests.");
       }
       return;
     }
@@ -529,7 +703,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
     if (deleteError && !deleteWorked) {
       console.error("Error denying request:", deleteError);
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("Failed to deny request: " + deleteError.message);
       }
       return;
@@ -542,17 +716,187 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
     console.log("Lunches refreshed after denying request");
   };
 
+  const leaveLunch = async (lunchId: string) => {
+    if (!user) {
+      if (typeof window !== "undefined") {
+        alert("You must be logged in to leave a lunch.");
+      }
+      return;
+    }
+
+    try {
+      // Prefer RPC so delete + seats update happen in one transaction and persist
+      let serverSuccess = false;
+
+      const { error: rpcError } = await supabase.rpc("leave_lunch", {
+        p_lunch_id: lunchId,
+      });
+
+      if (!rpcError) {
+        serverSuccess = true;
+      } else {
+        console.log("leave_lunch RPC not available or failed, using direct delete/update:", rpcError);
+      }
+
+      if (!serverSuccess) {
+        // Fallback: find attendee, delete row, update seats (requires RLS policy "Users can delete their own attendee record")
+        const { data: attendeeRecord, error: findError } = await supabase
+          .from("lunch_attendees")
+          .select("id, lunch_id")
+          .eq("lunch_id", lunchId)
+          .eq("user_id", user.id)
+          .or("status.eq.accepted,status.is.null")
+          .maybeSingle();
+
+        if (findError || !attendeeRecord) {
+          console.error("Error finding attendee record:", findError);
+          if (typeof window !== "undefined") {
+            alert("Could not find your attendance record. You may have already left.");
+          }
+          await fetchLunches();
+          return;
+        }
+
+        const { data: lunchData, error: lunchError } = await supabase
+          .from("lunches")
+          .select("seats")
+          .eq("id", lunchId)
+          .single();
+
+        if (lunchError || !lunchData) {
+          console.error("Error fetching lunch:", lunchError);
+          if (typeof window !== "undefined") {
+            alert("Failed to update lunch. Please try again.");
+          }
+          return;
+        }
+
+        const { error: deleteError } = await supabase
+          .from("lunch_attendees")
+          .delete()
+          .eq("id", attendeeRecord.id);
+
+        if (deleteError) {
+          console.error("Error leaving lunch:", deleteError);
+          if (typeof window !== "undefined") {
+            alert("Failed to leave lunch. Please try again.");
+          }
+          return;
+        }
+
+        const { error: updateError } = await supabase
+          .from("lunches")
+          .update({ seats: lunchData.seats + 1 })
+          .eq("id", lunchId);
+
+        if (updateError) {
+          console.error("Error updating seats:", updateError);
+        }
+        serverSuccess = true; // Delete succeeded; seats update is best-effort
+      }
+
+      if (!serverSuccess) return;
+
+      // Update local state so the UI reflects the change immediately
+      setLunches((prev) =>
+        prev.map((lunch) =>
+          lunch.id === lunchId
+            ? {
+                ...lunch,
+                seats: lunch.seats + 1,
+                lunch_attendees: lunch.lunch_attendees.filter(
+                  (a) => a.user_id !== user.id
+                ),
+              }
+            : lunch
+        )
+      );
+      setVersion((v) => v + 1);
+
+      try {
+        Alert.alert("Success", "You have left the lunch meet.");
+      } catch {
+        if (typeof window !== "undefined") {
+          alert("You have left the lunch meet.");
+        }
+      }
+    } catch (err: any) {
+      console.error("Unexpected error leaving lunch:", err);
+      if (typeof window !== "undefined") {
+        alert("An unexpected error occurred: " + (err.message || String(err)));
+      }
+    }
+  };
+
   const closeLunch = async (lunch: LunchMeet) => {
     if (!user) return;
-    if (lunch.host_id !== user.id) return;
+    const isHostOrCoHost = lunch.host_id === user.id || lunch.co_host_id === user.id;
+    if (!isHostOrCoHost) return;
 
     await supabase.from("lunches").delete().eq("id", lunch.id);
     fetchLunches();
   };
 
+  const submitRating = async (ratedId: string, lunchId: string, rating: number): Promise<boolean> => {
+    if (!user) return false;
+    if (rating < 1 || rating > 5) return false;
+
+    const { error } = await supabase.from("user_ratings").upsert(
+      {
+        rater_id: user.id,
+        rated_id: ratedId,
+        lunch_id: lunchId,
+        rating,
+      },
+      {
+        onConflict: "rater_id,rated_id,lunch_id",
+      }
+    );
+
+    if (error) {
+      console.error("Error submitting rating:", error);
+      return false;
+    }
+    return true;
+  };
+
+  const acceptInvite = async (inviteId: string) => {
+    if (!user) return;
+    const invite = invites.find((i) => i.id === inviteId);
+    if (!invite?.lunch) return;
+    const lunch = invite.lunch;
+    if (lunch.seats <= 0) {
+      if (typeof window !== "undefined") {
+        alert("This lunch is full.");
+      }
+      await declineInvite(inviteId);
+      return;
+    }
+    const { error: insertError } = await supabase.from("lunch_attendees").insert({
+      lunch_id: lunch.id,
+      user_id: user.id,
+      status: "accepted",
+    });
+    if (insertError) {
+      if (typeof window !== "undefined") {
+        alert("Could not join: " + insertError.message);
+      }
+      return;
+    }
+    await supabase.from("lunch_invites").update({ status: "accepted" }).eq("id", inviteId);
+    await supabase.from("lunches").update({ seats: lunch.seats - 1 }).eq("id", lunch.id);
+    await fetchInvites();
+    await fetchLunches();
+  };
+
+  const declineInvite = async (inviteId: string) => {
+    await supabase.from("lunch_invites").update({ status: "declined" }).eq("id", inviteId);
+    await fetchInvites();
+  };
+
   return (
     <LunchContext.Provider
-      value={{ lunches, loading, addLunch, joinLunch, acceptRequest, denyRequest, closeLunch, fetchLunches }}
+      value={{ lunches, loading, addLunch, joinLunch, acceptRequest, denyRequest, leaveLunch, closeLunch, submitRating, invites, acceptInvite, declineInvite, fetchLunches, fetchInvites, version }}
     >
       {children}
     </LunchContext.Provider>

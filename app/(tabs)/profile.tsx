@@ -1,18 +1,23 @@
+import { readAsStringAsync } from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import {
-  Alert,
-  Button,
-  Image,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Alert,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
+import ProfilePhotoImage from "../../components/ProfilePhotoImage";
+import SafetyTipsModal from "../../components/SafetyTipsModal";
+import ZoomableImage from "../../components/ZoomableImage";
+import { Colors, Radius, Shadows, Spacing, Typography } from "../../constants/theme";
 import { supabase } from "../../src/lib/supabase";
+import { preparePhotosForDisplay, toPublicPhotoUrls } from "../../src/utils/photoUrls";
 
 export default function Profile() {
   const [profile, setProfile] = useState<any>({
@@ -22,10 +27,13 @@ export default function Profile() {
     bio: "",
     photos: [],
     looking_for: [],
+    social_media_url: "",
   });
 
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
+  const [showSafetyTips, setShowSafetyTips] = useState(false);
 
   useEffect(() => {
     loadProfile();
@@ -42,8 +50,12 @@ export default function Profile() {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      console.log("No user found");
+      return;
+    }
 
+    console.log("Loading profile for user:", user.id);
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
@@ -56,22 +68,22 @@ export default function Profile() {
     }
 
     if (data) {
+      const rawPhotos = Array.isArray(data.photos) ? data.photos : (data.photos ? [data.photos] : []);
+      const photos = await preparePhotosForDisplay(rawPhotos);
+
       const updatedProfile = {
         name: String(data.name || ""),
         age: data.age?.toString() ?? "",
         gender: String(data.gender || ""),
         bio: String(data.bio || ""),
-        photos: Array.isArray(data.photos) ? data.photos : (data.photos ? [data.photos] : []),
+        photos,
         looking_for: Array.isArray(data.looking_for) ? data.looking_for : (data.looking_for ? [data.looking_for] : []),
+        social_media_url: String(data.social_media_url || ""),
       };
-      console.log("Loading profile data:", updatedProfile);
-      console.log("Name value from DB:", data.name);
-      console.log("Name type:", typeof data.name);
-      // Force a complete state replacement with functional update
       setProfile(() => ({ ...updatedProfile }));
-      console.log("Profile state updated");
     } else {
       // If no profile exists, reset to empty
+      console.log("No profile data found, resetting to empty");
       setProfile({
         name: "",
         age: "",
@@ -79,6 +91,7 @@ export default function Profile() {
         bio: "",
         photos: [],
         looking_for: [],
+        social_media_url: "",
       });
     }
   };
@@ -98,41 +111,43 @@ export default function Profile() {
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    const fileName = `${Date.now()}.jpg`;
-    let uploadData: any;
+    let dataUri: string;
 
     if (Platform.OS === "web") {
       const response = await fetch(asset.uri);
-      uploadData = await response.blob();
+      const blob = await response.blob();
+      dataUri = await new Promise<string>((res, rej) => {
+        const reader = new FileReader();
+        reader.onloadend = () => res((reader.result as string) || "");
+        reader.onerror = rej;
+        reader.readAsDataURL(blob);
+      });
     } else {
-      uploadData = {
-        uri: asset.uri,
-        name: fileName,
-        type: "image/jpeg",
-      };
+      const base64 = await readAsStringAsync(asset.uri, { encoding: "base64" });
+      dataUri = `data:image/jpeg;base64,${base64}`;
     }
 
-    const { data, error } = await supabase.storage
-      .from("profile-photos")
-      .upload(fileName, uploadData, {
-        contentType: "image/jpeg",
-      });
+    const newPhotos = [...profile.photos, dataUri];
+    setProfile((prev: any) => ({ ...prev, photos: newPhotos }));
 
-    if (error) {
-      Alert.alert("Upload failed", error.message);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      Alert.alert("Error", "You must be logged in to save photos");
       return;
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage
-      .from("profile-photos")
-      .getPublicUrl(data.path);
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({ photos: newPhotos })
+      .eq("id", user.id);
 
-    setProfile((prev: any) => ({
-      ...prev,
-      photos: [...prev.photos, publicUrl],
-    }));
+    if (updateError) {
+      Alert.alert("Upload OK", "Photo added, but save failed: " + updateError.message);
+    } else {
+      Alert.alert("Success", "Photo added and saved!");
+    }
   };
 
   const deletePhoto = (index: number) => {
@@ -175,13 +190,16 @@ export default function Profile() {
         return;
       }
 
+      // Always save public URLs to DB (never signed URLs - they expire)
+      const photosToSave = toPublicPhotoUrls(profile.photos);
       const profileData: any = {
         id: user.id,
         name: profile.name.trim() || null,
         age: Number(profile.age) || null,
         gender: profile.gender.trim() || null,
         bio: profile.bio.trim() || null,
-        photos: profile.photos,
+        photos: photosToSave,
+        social_media_url: profile.social_media_url?.trim() || null,
       };
       
       // Only include looking_for if the column exists (will be added via SQL migration)
@@ -242,7 +260,9 @@ export default function Profile() {
       <View style={styles.photoRow}>
         {profile.photos.map((url: string, index: number) => (
           <View key={url} style={styles.photoWrapper}>
-            <Image source={{ uri: url }} style={styles.photo} />
+            <Pressable onPress={() => setEnlargedPhoto(url)}>
+              <ProfilePhotoImage source={{ uri: url }} style={styles.photo} />
+            </Pressable>
 
             <View style={styles.controls}>
               <Pressable
@@ -280,45 +300,96 @@ export default function Profile() {
         )}
       </View>
 
-      <TextInput
-        placeholder="Name"
-        style={styles.input}
-        value={profile.name || ""}
-        onChangeText={(t) =>
-          setProfile((prev: any) => ({ ...prev, name: t }))
-        }
-      />
+      {/* Photo Enlargement Modal */}
+      <Modal
+        visible={!!enlargedPhoto}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setEnlargedPhoto(null)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setEnlargedPhoto(null)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            {enlargedPhoto && (
+              <ZoomableImage uri={enlargedPhoto} style={styles.enlargedPhoto} />
+            )}
+            <Pressable 
+              style={styles.closeButton}
+              onPress={() => setEnlargedPhoto(null)}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
-      <TextInput
-        placeholder="Age"
-        keyboardType="numeric"
-        style={styles.input}
-        value={profile.age}
-        onChangeText={(t) => {
-          // Only allow numeric characters
-          const numericValue = t.replace(/[^0-9]/g, '');
-          setProfile({ ...profile, age: numericValue });
-        }}
-      />
+      <View style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>Name</Text>
+        <TextInput
+          placeholder="Enter your name"
+          style={styles.input}
+          value={profile.name || ""}
+          onChangeText={(t) =>
+            setProfile((prev: any) => ({ ...prev, name: t }))
+          }
+        />
+      </View>
 
-      <TextInput
-        placeholder="Gender"
-        style={styles.input}
-        value={profile.gender}
-        onChangeText={(t) =>
-          setProfile({ ...profile, gender: t })
-        }
-      />
+      <View style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>Age</Text>
+        <TextInput
+          placeholder="Enter your age"
+          keyboardType="numeric"
+          style={styles.input}
+          value={profile.age}
+          onChangeText={(t) => {
+            const numericValue = t.replace(/[^0-9]/g, '');
+            setProfile({ ...profile, age: numericValue });
+          }}
+        />
+      </View>
 
-      <TextInput
-        placeholder="Short bio"
-        style={[styles.input, { height: 80 }]}
-        multiline
-        value={profile.bio}
-        onChangeText={(t) =>
-          setProfile({ ...profile, bio: t })
-        }
-      />
+      <View style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>Gender</Text>
+        <TextInput
+          placeholder="Enter your gender"
+          style={styles.input}
+          value={profile.gender}
+          onChangeText={(t) =>
+            setProfile({ ...profile, gender: t })
+          }
+        />
+      </View>
+
+      <View style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>Short bio</Text>
+        <TextInput
+          placeholder="Tell others a bit about yourself"
+          style={[styles.input, { height: 80 }]}
+          multiline
+          value={profile.bio}
+          onChangeText={(t) =>
+            setProfile({ ...profile, bio: t })
+          }
+        />
+      </View>
+
+      <View style={styles.fieldContainer}>
+        <Text style={styles.fieldLabel}>Social media link</Text>
+        <TextInput
+          placeholder="e.g. https://instagram.com/yourprofile"
+          style={styles.input}
+          value={profile.social_media_url || ""}
+          onChangeText={(t) =>
+            setProfile({ ...profile, social_media_url: t })
+          }
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="url"
+        />
+      </View>
 
       <View style={styles.lookingForContainer}>
         <Text style={styles.lookingForLabel}>Looking For</Text>
@@ -354,10 +425,24 @@ export default function Profile() {
         </View>
       </View>
 
-      <Button
-        title={saving ? "Saving..." : "Save Profile"}
+      <Pressable
+        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
         onPress={saveProfile}
         disabled={saving}
+      >
+        <Text style={styles.saveButtonText}>{saving ? "Saving..." : "Save Profile"}</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.safetyTipsButton}
+        onPress={() => setShowSafetyTips(true)}
+      >
+        <Text style={styles.safetyTipsButtonText}>View Safety Tips</Text>
+      </Pressable>
+
+      <SafetyTipsModal
+        visible={showSafetyTips}
+        onClose={() => setShowSafetyTips(false)}
       />
 
       {saveSuccess && (
@@ -370,83 +455,148 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  title: { fontSize: 28, fontWeight: "700", marginBottom: 12 },
-  photoRow: { flexDirection: "row", flexWrap: "wrap" },
-  photoWrapper: { marginRight: 10, marginBottom: 10 },
-  photo: { width: 90, height: 90, borderRadius: 8 },
-  controls: { flexDirection: "row", marginTop: 4 },
-  controlBtn: {
-    padding: 4,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 4,
-    marginRight: 4,
+  container: {
+    flex: 1,
+    padding: Spacing.lg,
+    backgroundColor: Colors.background,
   },
-  deleteBtn: { backgroundColor: "#EF4444" },
+  title: {
+    ...Typography.title,
+    fontSize: 28,
+    marginBottom: Spacing.lg,
+    color: Colors.text,
+  },
+  photoRow: { flexDirection: "row", flexWrap: "wrap" },
+  photoWrapper: { marginRight: Spacing.md, marginBottom: Spacing.md },
+  photo: { width: 110, height: 110, borderRadius: Radius.lg },
+  controls: { flexDirection: "row", marginTop: Spacing.sm },
+  controlBtn: {
+    padding: Spacing.sm,
+    backgroundColor: Colors.border,
+    borderRadius: Radius.sm,
+    marginRight: Spacing.sm,
+  },
+  deleteBtn: { backgroundColor: Colors.destructive },
   addPhoto: {
-    width: 90,
-    height: 90,
-    borderRadius: 8,
-    backgroundColor: "#E5E7EB",
+    width: 110,
+    height: 110,
+    borderRadius: Radius.lg,
+    backgroundColor: Colors.borderLight,
     justifyContent: "center",
     alignItems: "center",
   },
-  addPhotoText: { fontSize: 32 },
-  addPhotoLabel: { fontSize: 12 },
+  addPhotoText: { fontSize: 38, color: Colors.textSecondary },
+  addPhotoLabel: { ...Typography.body, fontWeight: "500", color: Colors.textSecondary },
+  fieldContainer: { marginBottom: Spacing.lg },
+  fieldLabel: {
+    ...Typography.titleSmall,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.sm,
+  },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
+    borderColor: Colors.border,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    marginBottom: Spacing.md,
+    fontSize: 16,
+    backgroundColor: Colors.surface,
+  },
+  saveButton: {
+    marginTop: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+    alignItems: "center",
+    ...Shadows.button,
+  },
+  saveButtonDisabled: { opacity: 0.6 },
+  saveButtonText: {
+    color: "#fff",
+    ...Typography.button,
   },
   successMessage: {
-    marginTop: 16,
-    padding: 12,
-    backgroundColor: "#d4edda",
+    marginTop: Spacing.xl,
+    padding: Spacing.md,
+    backgroundColor: Colors.successBg,
     borderWidth: 1,
-    borderColor: "#c3e6cb",
-    borderRadius: 8,
+    borderColor: Colors.success,
+    borderRadius: Radius.md,
   },
   successText: {
-    color: "#155724",
-    fontSize: 14,
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  lookingForContainer: {
-    marginBottom: 16,
-  },
-  lookingForLabel: {
+    color: "#065f46",
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 12,
-    color: "#333",
+    textAlign: "center",
+  },
+  safetyTipsButton: {
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.md,
+    alignItems: "center",
+  },
+  safetyTipsButtonText: {
+    ...Typography.body,
+    color: Colors.link,
+    fontWeight: "500",
+  },
+  lookingForContainer: { marginBottom: Spacing.xl },
+  lookingForLabel: {
+    ...Typography.titleSmall,
+    marginBottom: Spacing.md,
   },
   lookingForOptions: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: Spacing.sm,
   },
   lookingForOption: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.lg,
+    borderRadius: Radius.md,
     borderWidth: 2,
-    borderColor: "#e0e0e0",
-    backgroundColor: "#fff",
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
   },
   lookingForOptionSelected: {
-    borderColor: "#0066cc",
-    backgroundColor: "#0066cc",
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
   },
   lookingForOptionText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "500",
-    color: "#333",
+    color: Colors.text,
   },
-  lookingForOptionTextSelected: {
+  lookingForOptionTextSelected: { color: "#fff" },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.88)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    width: "90%",
+    height: "70%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  enlargedPhoto: { width: "100%", height: "100%" },
+  closeButton: {
+    position: "absolute",
+    top: Spacing.xl,
+    right: Spacing.xl,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  closeButtonText: {
     color: "#fff",
+    fontSize: 24,
+    fontWeight: "600",
   },
 });
 
