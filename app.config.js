@@ -1,5 +1,9 @@
 require("dotenv").config();
 
+// Fallback: eas.json env (used when process.env is empty, e.g. dev build loading from Metro)
+const easConfig = require("./eas.json");
+const easEnv = easConfig?.build?.development?.env || {};
+
 module.exports = {
   expo: {
     name: "LunchMeet",
@@ -18,9 +22,11 @@ module.exports = {
     ios: {
       bundleIdentifier: "com.lunchmeet.app",
       supportsTablet: true,
+      usesAppleSignIn: true,
       infoPlist: {
         NSLocationWhenInUseUsageDescription: "LunchMeet needs your location to show nearby restaurants on the map.",
         NSLocationAlwaysAndWhenInUseUsageDescription: "LunchMeet needs your location to show nearby restaurants on the map.",
+        ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
@@ -41,6 +47,17 @@ module.exports = {
       })(),
     },
     plugins: [
+      "expo-dev-client",
+      "expo-apple-authentication",
+      [
+        "expo-build-properties",
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            extraProguardRules: "-keepattributes SourceFile,LineNumberTable",
+          },
+        },
+      ],
       "@react-native-community/datetimepicker",
       [
         "expo-location",
@@ -57,9 +74,9 @@ module.exports = {
     },
     extra: {
       googleMapsApiKey: process.env.GOOGLE_PLACES_API_KEY,
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      placesProxyUrl: process.env.EXPO_PUBLIC_PLACES_PROXY_URL || null,
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL || easEnv.EXPO_PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || easEnv.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      placesProxyUrl: process.env.EXPO_PUBLIC_PLACES_PROXY_URL || easEnv.EXPO_PUBLIC_PLACES_PROXY_URL || null,
       eas: {
         projectId: "7af89ddf-26f2-44b8-99c2-4e8bbdb227da"
       }

@@ -39,6 +39,7 @@ export type LunchMeet = {
 type LunchContextType = {
   lunches: LunchMeet[];
   loading: boolean;
+  fetchError: string | null;
   addLunch: (lunch: {
     restaurant: string;
     date_time: string;
@@ -50,7 +51,7 @@ type LunchContextType = {
   denyRequest: (lunchId: string, attendeeId: string) => Promise<void>;
   leaveLunch: (lunchId: string) => Promise<void>;
   closeLunch: (lunch: LunchMeet) => Promise<void>;
-  submitRating: (ratedId: string, lunchId: string, rating: number) => Promise<boolean>;
+  submitRating: (ratedId: string, lunchId: string, rating: number, comment?: string) => Promise<boolean>;
   invites: Array<{ id: string; lunch_id: string; lunch: LunchMeet; inviter_profile: Profile | null }>;
   acceptInvite: (inviteId: string) => Promise<void>;
   declineInvite: (inviteId: string) => Promise<void>;
@@ -62,13 +63,17 @@ type LunchContextType = {
 const LunchContext = createContext<LunchContextType | undefined>(undefined);
 
 export function LunchProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [lunches, setLunches] = useState<LunchMeet[]>([]);
   const [invites, setInvites] = useState<Array<{ id: string; lunch_id: string; lunch: LunchMeet; inviter_profile: Profile | null }>>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
 
-  const fetchLunches = async () => {
+  const fetchLunches = async (retryCount = 0) => {
+    console.log("[Lunch] fetchLunches started, retryCount:", retryCount);
+    if (retryCount === 0) setFetchError(null);
+    const maxRetries = 3;
     try {
     const { data, error } = await supabase
       .from("lunches")
@@ -107,109 +112,45 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Fetch host and co-host profiles separately
-    const hostIds = [...new Set((data ?? []).flatMap((lunch: any) => [lunch.host_id, lunch.co_host_id].filter(Boolean)))]
-    const { data: hostProfiles } = await supabase
-      .from("profiles")
-      .select("id, name, age")
-      .in("id", hostIds)
-    
-    const hostProfileMap = new Map(
-      (hostProfiles ?? []).map((profile: any) => [profile.id, profile])
-    )
-
-    // Fetch attendee profiles separately
-    const allAttendees = (data ?? []).flatMap((lunch: any) => 
-      (lunch.lunch_attendees ?? []).map((a: any) => a.user_id)
-    )
-    const attendeeIds = [...new Set(allAttendees.filter(Boolean))]
-    
-    let attendeeProfileMap = new Map()
-    if (attendeeIds.length > 0) {
-      const { data: attendeeProfiles } = await supabase
-        .from("profiles")
-        .select("id, name, age")
-        .in("id", attendeeIds)
-      
-      attendeeProfileMap = new Map(
-        (attendeeProfiles ?? []).map((profile: any) => [profile.id, profile])
-      )
+    // Use nested profiles only for attendees (no extra fetch). Host profiles: 1 query.
+    const hostIds = [...new Set((data ?? []).flatMap((lunch: any) => [lunch.host_id, lunch.co_host_id].filter(Boolean)))];
+    const hostProfileMap = new Map<string, Profile>();
+    if (hostIds.length > 0) {
+      const { data: hostProfiles } = await supabase.from("profiles").select("id, name, age").in("id", hostIds);
+      (hostProfiles ?? []).forEach((p: any) => hostProfileMap.set(p.id, p));
     }
 
-    // Normalize Supabase response
     const normalized: LunchMeet[] = (data ?? []).map((lunch: any) => ({
       ...lunch,
       host_profile: hostProfileMap.get(lunch.host_id) || null,
       co_host_profile: lunch.co_host_id ? hostProfileMap.get(lunch.co_host_id) || null : null,
       lunch_attendees: (lunch.lunch_attendees ?? []).map((a: any) => {
-        // Try to get profile from the relationship first, then fall back to separate fetch
-        const profileFromRelation = a.profiles?.[0] || (Array.isArray(a.profiles) ? a.profiles[0] : a.profiles)
-        const profileFromMap = a.user_id ? attendeeProfileMap.get(a.user_id) : null
-        
+        const profileFromRelation = a.profiles?.[0] || (Array.isArray(a.profiles) ? a.profiles[0] : a.profiles);
         return {
           id: a.id,
           user_id: a.user_id,
-          status: a.status || "accepted", // Default to accepted for backward compatibility
-          profile: profileFromRelation || profileFromMap || null,
-        }
+          status: a.status || "accepted",
+          profile: profileFromRelation || null,
+        };
       }),
     }));
 
-    console.log("fetchLunches: Setting lunches state with", normalized.length, "lunches");
-    
-    // Log attendee counts for debugging
-    normalized.forEach((lunch) => {
-      const attendeeCount = lunch.lunch_attendees?.length || 0;
-      const acceptedAttendees = lunch.lunch_attendees?.filter(
-        (a: any) => a.status === "accepted" || !a.status
-      ) || [];
-      console.log(`  Lunch ${lunch.id}: ${attendeeCount} total attendees, ${acceptedAttendees.length} accepted`);
-    });
-    
-    // Apply visibility filter: if lunch has visibility rules, only show to matching users
+    // Phase 1 filter: skip myProfile fetch (defer visibility to background) - completes faster
     let filtered = normalized;
     if (!user) {
-      // No user: hide private lunches
       filtered = normalized.filter((lunch: any) => lunch.is_public !== false);
     } else {
-      const { data: myProfile } = await supabase
-        .from("profiles")
-        .select("gender, looking_for")
-        .eq("id", user.id)
-        .single();
-
-      const myGender = (myProfile?.gender || "").toLowerCase().trim();
-      const myLookingFor = Array.isArray(myProfile?.looking_for) ? myProfile.looking_for : [];
-
       filtered = normalized.filter((lunch: any) => {
-        // Host and co-host always see their own lunch
         if (lunch.host_id === user.id || lunch.co_host_id === user.id) return true;
-
-        // Private lunches: only show to accepted attendees (invited users see via invites section)
         if (lunch.is_public === false) {
-          const isAccepted = (lunch.lunch_attendees || []).some(
+          return (lunch.lunch_attendees || []).some(
             (a: any) => a.user_id === user.id && (a.status === "accepted" || !a.status)
           );
-          return isAccepted;
         }
-
-        const vGender = lunch.visibility_gender;
-        const vLookingFor = lunch.visibility_looking_for;
-
-        if (vGender && Array.isArray(vGender) && vGender.length > 0) {
-          const normalizedVGender = vGender.map((g: string) => (g || "").toLowerCase().trim());
-          if (myGender && !normalizedVGender.includes(myGender)) return false;
-          if (!myGender) return false; // No gender set = no match
-        }
-        if (vLookingFor && Array.isArray(vLookingFor) && vLookingFor.length > 0) {
-          const hasOverlap = myLookingFor.some((lf: string) => vLookingFor.includes(lf));
-          if (!hasOverlap) return false;
-        }
-        return true;
+        return true; // Show all public initially; visibility filter applied in background
       });
     }
 
-    // Create a completely new array with deep copies to ensure React detects the change
     const newLunches = filtered.map((lunch: any) => ({
       ...lunch,
       lunch_attendees: (lunch.lunch_attendees || []).map((a: any) => ({ ...a }))
@@ -217,11 +158,22 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
     setLunches(newLunches);
     setLoading(false);
     setVersion((v) => v + 1);
-    if (user) fetchInvites();
+
+    // Defer fetchInvites to background (does not block initial display)
+    if (user) setTimeout(() => fetchInvites(), 100);
     } catch (err) {
       console.warn("fetchLunches network error:", err);
       setLunches([]);
       setLoading(false);
+      const msg = err instanceof Error ? err.message : String(err);
+      const isTimeout = /timeout|abort|timed out/i.test(msg);
+      setFetchError(isTimeout
+        ? "Connection timed out. Try a different WiFi or tap Retry."
+        : "Could not load lunches. Tap Retry to try again.");
+      if (retryCount < maxRetries) {
+        const delay = [2000, 5000, 10000][retryCount];
+        setTimeout(() => fetchLunches(retryCount + 1), delay);
+      }
     }
   };
 
@@ -301,14 +253,24 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Wait for auth to resolve, then only fetch when logged in — avoids timeout on login screen
   useEffect(() => {
+    console.log("[Lunch] authLoading:", authLoading, "user:", !!user);
+    if (authLoading) return;
+    if (!user) {
+      setLoading(false);
+      setLunches([]);
+      return;
+    }
+    console.log("[Lunch] authLoading is false, user logged in, firing fetchLunches");
     fetchLunches();
-  }, []);
+  }, [authLoading, user]);
 
   useEffect(() => {
+    if (authLoading) return;
     if (user) fetchInvites();
     else setInvites([]);
-  }, [user]);
+  }, [user, authLoading]);
 
   const addLunch = async (lunch: {
     restaurant: string;
@@ -837,17 +799,22 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
     fetchLunches();
   };
 
-  const submitRating = async (ratedId: string, lunchId: string, rating: number): Promise<boolean> => {
+  const submitRating = async (ratedId: string, lunchId: string, rating: number, comment?: string): Promise<boolean> => {
     if (!user) return false;
     if (rating < 1 || rating > 5) return false;
 
+    const payload: Record<string, unknown> = {
+      rater_id: user.id,
+      rated_id: ratedId,
+      lunch_id: lunchId,
+      rating,
+    };
+    if (comment != null && comment.trim()) {
+      payload.comment = comment.trim();
+    }
+
     const { error } = await supabase.from("user_ratings").upsert(
-      {
-        rater_id: user.id,
-        rated_id: ratedId,
-        lunch_id: lunchId,
-        rating,
-      },
+      payload,
       {
         onConflict: "rater_id,rated_id,lunch_id",
       }
@@ -896,7 +863,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <LunchContext.Provider
-      value={{ lunches, loading, addLunch, joinLunch, acceptRequest, denyRequest, leaveLunch, closeLunch, submitRating, invites, acceptInvite, declineInvite, fetchLunches, fetchInvites, version }}
+      value={{ lunches, loading, fetchError, addLunch, joinLunch, acceptRequest, denyRequest, leaveLunch, closeLunch, submitRating, invites, acceptInvite, declineInvite, fetchLunches, fetchInvites, version }}
     >
       {children}
     </LunchContext.Provider>

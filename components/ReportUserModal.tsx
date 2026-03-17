@@ -1,32 +1,34 @@
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { Colors, Radius, Spacing, Typography } from "../constants/theme";
-import StarRating from "./StarRating";
 
-type RateAttendeeModalProps = {
+const MIN_WORDS = 50;
+
+function countWords(text: string): number {
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+type ReportUserModalProps = {
   visible: boolean;
-  attendeeName: string;
-  rating: number;
-  comment?: string;
-  onRatingChange: (rating: number) => void;
-  onCommentChange?: (comment: string) => void;
+  reportedName: string;
+  comment: string;
+  onCommentChange: (comment: string) => void;
   onSubmit: () => void;
   onClose: () => void;
   submitting?: boolean;
 };
 
-export default function RateAttendeeModal({
+export default function ReportUserModal({
   visible,
-  attendeeName,
-  rating,
-  comment = "",
-  onRatingChange,
+  reportedName,
+  comment,
   onCommentChange,
   onSubmit,
   onClose,
   submitting = false,
-}: RateAttendeeModalProps) {
-  const needsComment = rating >= 1 && rating < 3;
-  const canSubmit = rating >= 1 && (!needsComment || (comment?.trim()?.length ?? 0) > 0);
+}: ReportUserModalProps) {
+  const wordCount = countWords(comment);
+  const meetsMinWords = wordCount >= MIN_WORDS;
+  const canSubmit = meetsMinWords && !submitting;
 
   return (
     <Modal
@@ -38,40 +40,37 @@ export default function RateAttendeeModal({
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.modal} onPress={(e) => e.stopPropagation()}>
           <View style={styles.header}>
-            <Text style={styles.title}>Rate {attendeeName}</Text>
+            <Text style={styles.title}>Report {reportedName}</Text>
             <Pressable onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>✕</Text>
             </Pressable>
           </View>
-          <Text style={styles.subtitle}>How was your lunch meet experience?</Text>
-          <StarRating value={rating} onChange={onRatingChange} />
-          {needsComment && (
-            <View style={styles.commentContainer}>
-              <Text style={styles.commentLabel}>
-                Please explain why (required for ratings under 3 stars)
-              </Text>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Enter your reason..."
-                placeholderTextColor={Colors.textMuted}
-                value={comment ?? ""}
-                onChangeText={onCommentChange ?? (() => {})}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
-          )}
+          <Text style={styles.subtitle}>
+            Please describe why you are reporting this user. Your report must be at least 50 words.
+          </Text>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Describe the reason for your report in detail..."
+            placeholderTextColor={Colors.textMuted}
+            value={comment}
+            onChangeText={onCommentChange}
+            multiline
+            numberOfLines={6}
+          />
+          <Text style={[styles.wordCount, !meetsMinWords && styles.wordCountInsufficient]}>
+            {wordCount} / {MIN_WORDS} words
+          </Text>
           <View style={styles.buttons}>
             <Pressable style={styles.cancelButton} onPress={onClose}>
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </Pressable>
             <Pressable
-              style={[styles.submitButton, (!canSubmit || submitting) && styles.submitButtonDisabled]}
+              style={[styles.submitButton, !canSubmit && styles.submitButtonDisabled]}
               onPress={onSubmit}
-              disabled={!canSubmit || submitting}
+              disabled={!canSubmit}
             >
               <Text style={styles.submitButtonText}>
-                {submitting ? "Submitting..." : "Submit Rating"}
+                {submitting ? "Submitting..." : "Submit Report"}
               </Text>
             </Pressable>
           </View>
@@ -91,7 +90,7 @@ const styles = StyleSheet.create({
   },
   modal: {
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 400,
     backgroundColor: Colors.surface,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
@@ -117,15 +116,7 @@ const styles = StyleSheet.create({
   subtitle: {
     ...Typography.body,
     color: Colors.textSecondary,
-    marginBottom: Spacing.lg,
-  },
-  commentContainer: {
-    marginTop: Spacing.md,
-  },
-  commentLabel: {
-    ...Typography.caption,
-    color: Colors.textSecondary,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   commentInput: {
     borderWidth: 1,
@@ -134,15 +125,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
     fontSize: 15,
-    minHeight: 80,
+    minHeight: 120,
     textAlignVertical: "top",
     backgroundColor: Colors.background,
+    marginBottom: Spacing.sm,
+  },
+  wordCount: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.lg,
+  },
+  wordCountInsufficient: {
+    color: Colors.error,
   },
   buttons: {
     flexDirection: "row",
     justifyContent: "flex-end",
     gap: Spacing.md,
-    marginTop: Spacing.xl,
   },
   cancelButton: {
     paddingVertical: Spacing.md,
@@ -155,7 +154,7 @@ const styles = StyleSheet.create({
   submitButton: {
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.error,
     borderRadius: Radius.md,
   },
   submitButtonDisabled: {

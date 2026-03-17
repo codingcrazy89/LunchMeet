@@ -1,7 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
-    Keyboard,
     KeyboardAvoidingView,
     Linking,
     Platform,
@@ -45,8 +44,6 @@ export default function ChatScreen() {
   const [canAccessChat, setCanAccessChat] = useState<boolean | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     if (!lunchId) {
@@ -176,30 +173,6 @@ export default function ChatScreen() {
     loadMessages();
     subscribeToMessages();
   }, [chatRoomId]);
-
-  useEffect(() => {
-    const showSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      (e) => {
-        setKeyboardHeight(e.endCoordinates.height);
-        setKeyboardVisible(true);
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({ animated: true });
-        }, Platform.OS === "ios" ? 350 : 100);
-      }
-    );
-    const hideSub = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => {
-        setKeyboardHeight(0);
-        setKeyboardVisible(false);
-      }
-    );
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
 
   const loadChatRoom = async () => {
     if (!lunchId) return;
@@ -498,7 +471,6 @@ export default function ChatScreen() {
   }
 
   const isAndroid = Platform.OS === "android";
-  const hideHeader = isAndroid && keyboardVisible;
 
   const chatContent = (
     <>
@@ -507,8 +479,8 @@ export default function ChatScreen() {
         <Text style={styles.backButtonText}>← Back</Text>
       </Pressable>
 
-      {/* Lunch Details Header — hidden on Android when keyboard is open */}
-      {lunchDetails && !hideHeader && (
+      {/* Lunch Details Header */}
+      {lunchDetails && (
         <View style={styles.headerContainer}>
           <Pressable onPress={openRestaurantInGoogle}>
             <Text style={styles.restaurantName}>
@@ -539,18 +511,11 @@ export default function ChatScreen() {
           </View>
         </View>
       )}
-      {/* Compact header on Android when keyboard is open */}
-      {lunchDetails && hideHeader && (
-        <View style={styles.headerCompact}>
-          <Text style={styles.headerCompactText} numberOfLines={1}>
-            {lunchDetails.restaurant}
-          </Text>
-        </View>
-      )}
 
       <View style={styles.messagesWrapper}>
         <ScrollView
           ref={scrollViewRef}
+          removeClippedSubviews={false}
           style={styles.messagesContainer}
           contentContainerStyle={[
             styles.messagesContent,
@@ -636,7 +601,7 @@ export default function ChatScreen() {
       <View
         style={[
           styles.inputContainer,
-          { paddingBottom: keyboardVisible ? 6 : 6 + insets.bottom },
+          { paddingBottom: 6 + insets.bottom },
         ]}
       >
         <TextInput
@@ -661,18 +626,15 @@ export default function ChatScreen() {
     </>
   );
 
-  if (isAndroid) {
-    return <View style={styles.container}>{chatContent}</View>;
-  }
+  const Wrapper = Platform.OS === "ios" ? KeyboardAvoidingView : View;
+  const wrapperProps = Platform.OS === "ios"
+    ? { behavior: "padding" as const, keyboardVerticalOffset: insets.top + 88 }
+    : {};
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior="padding"
-      keyboardVerticalOffset={insets.top + 88}
-    >
+    <Wrapper style={styles.container} {...wrapperProps}>
       {chatContent}
-    </KeyboardAvoidingView>
+    </Wrapper>
   );
 }
 
@@ -711,18 +673,6 @@ const styles = StyleSheet.create({
     padding: Spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: Colors.borderLight,
-  },
-  headerCompact: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  headerCompactText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.text,
   },
   restaurantName: {
     fontSize: 20,

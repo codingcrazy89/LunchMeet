@@ -37,6 +37,9 @@ export default function NotificationToast({ notification, onDismiss }: Notificat
       case "rate_attendees":
         if (data?.lunch_id) router.push(`/rate-attendees/${data.lunch_id}`);
         break;
+      case "user_report":
+        router.push("/(tabs)");
+        break;
       default:
         router.push("/(tabs)");
     }

@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import ProfilePhotoImage from "../../components/ProfilePhotoImage";
@@ -22,6 +23,7 @@ type AttendeeToRate = {
   name: string;
   photoUrl?: string;
   rating: number;
+  comment?: string;
 };
 
 export default function RateAttendeesScreen() {
@@ -109,6 +111,7 @@ export default function RateAttendeesScreen() {
           name,
           photoUrl: photos[0],
           rating: ratingMap.get(uid) || 0,
+          comment: "",
         });
       }
 
@@ -130,6 +133,12 @@ export default function RateAttendeesScreen() {
     );
   };
 
+  const setCommentFor = (userId: string, comment: string) => {
+    setAttendees((prev) =>
+      prev.map((a) => (a.user_id === userId ? { ...a, comment } : a))
+    );
+  };
+
   const handleSubmit = async () => {
     if (!lunchId || !user) return;
     const toSubmit = attendees.filter((a) => a.rating >= 1 && a.rating <= 5);
@@ -138,7 +147,8 @@ export default function RateAttendeesScreen() {
     setSubmitting(true);
     try {
       for (const a of toSubmit) {
-        await submitRating(a.user_id, lunchId, a.rating);
+        const commentToUse = a.rating < 3 ? (a.comment?.trim() ?? "") : undefined;
+        await submitRating(a.user_id, lunchId, a.rating, commentToUse);
       }
       fetchLunches();
       router.back();
@@ -147,7 +157,11 @@ export default function RateAttendeesScreen() {
     }
   };
 
-  const allRated = attendees.length > 0 && attendees.every((a) => a.rating >= 1 && a.rating <= 5);
+  const allRated = attendees.length > 0 && attendees.every((a) => {
+    if (a.rating < 1 || a.rating > 5) return false;
+    if (a.rating < 3) return (a.comment?.trim() ?? "").length > 0;
+    return true;
+  });
   const someRated = attendees.some((a) => a.rating >= 1 && a.rating <= 5);
 
   if (loading) {
@@ -178,17 +192,33 @@ export default function RateAttendeesScreen() {
         ) : (
           attendees.map((a) => (
             <View key={a.user_id} style={styles.attendeeRow}>
-              <View style={styles.attendeeInfo}>
-                {a.photoUrl ? (
-                  <ProfilePhotoImage source={{ uri: a.photoUrl }} style={styles.avatar} />
-                ) : (
-                  <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                    <Text style={styles.avatarText}>{a.name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                )}
-                <Text style={styles.attendeeName}>{a.name}</Text>
+              <View style={styles.attendeeTopRow}>
+                <View style={styles.attendeeInfo}>
+                  {a.photoUrl ? (
+                    <ProfilePhotoImage source={{ uri: a.photoUrl }} style={styles.avatar} />
+                  ) : (
+                    <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                      <Text style={styles.avatarText}>{a.name.charAt(0).toUpperCase()}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.attendeeName}>{a.name}</Text>
+                </View>
+                <StarRating value={a.rating} onChange={(r) => setRatingFor(a.user_id, r)} />
               </View>
-              <StarRating value={a.rating} onChange={(r) => setRatingFor(a.user_id, r)} />
+              {a.rating >= 1 && a.rating < 3 && (
+                <View style={styles.commentContainer}>
+                  <Text style={styles.commentLabel}>Please explain why (required for ratings under 3 stars)</Text>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Enter your reason..."
+                    placeholderTextColor={Colors.textMuted}
+                    value={a.comment ?? ""}
+                    onChangeText={(text) => setCommentFor(a.user_id, text)}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+              )}
             </View>
           ))
         )}
@@ -262,9 +292,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   attendeeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     backgroundColor: Colors.surface,
@@ -272,6 +299,12 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.borderLight,
+  },
+  attendeeTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: Spacing.sm,
   },
   attendeeInfo: {
     flexDirection: "row",
@@ -297,6 +330,25 @@ const styles = StyleSheet.create({
   attendeeName: {
     ...Typography.body,
     fontWeight: "500",
+  },
+  commentContainer: {
+    marginTop: Spacing.sm,
+  },
+  commentLabel: {
+    ...Typography.caption,
+    color: Colors.textSecondary,
+    marginBottom: Spacing.xs,
+  },
+  commentInput: {
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: 15,
+    minHeight: 70,
+    textAlignVertical: "top",
+    backgroundColor: Colors.background,
   },
   submitButton: {
     marginTop: Spacing.xl,

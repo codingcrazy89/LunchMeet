@@ -22,6 +22,7 @@ export default function MyLunchesScreen() {
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
   const [ratingModal, setRatingModal] = useState<{ lunchId: string; attendeeId: string; attendeeName: string } | null>(null);
   const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   if (loading) {
     return (
@@ -257,20 +258,25 @@ export default function MyLunchesScreen() {
         visible={!!ratingModal}
         attendeeName={ratingModal?.attendeeName ?? ""}
         rating={ratingValue}
+        comment={ratingComment}
         onRatingChange={setRatingValue}
+        onCommentChange={setRatingComment}
         onSubmit={async () => {
           if (!ratingModal) return;
           setRatingSubmitting(true);
-          const ok = await submitRating(ratingModal.attendeeId, ratingModal.lunchId, ratingValue);
+          const commentToUse = ratingValue >= 1 && ratingValue < 3 ? ratingComment : undefined;
+          const ok = await submitRating(ratingModal.attendeeId, ratingModal.lunchId, ratingValue, commentToUse);
           setRatingSubmitting(false);
           if (ok) {
             setRatingModal(null);
             setRatingValue(0);
+            setRatingComment("");
           }
         }}
         onClose={() => {
           setRatingModal(null);
           setRatingValue(0);
+          setRatingComment("");
         }}
         submitting={ratingSubmitting}
       />

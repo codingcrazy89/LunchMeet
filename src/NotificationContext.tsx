@@ -6,7 +6,7 @@ import { supabase } from "./lib/supabase";
 export type Notification = {
   id: string;
   user_id: string;
-  type: "invite" | "join_request" | "cohost_added" | "new_message" | "request_accepted" | "rate_attendees";
+  type: "invite" | "join_request" | "cohost_added" | "new_message" | "request_accepted" | "rate_attendees" | "user_report";
   title: string;
   body: string | null;
   data: Record<string, unknown>;
@@ -56,7 +56,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       setLatestToast(null);
       return;
     }
-    fetchNotifications();
+    const t = setTimeout(fetchNotifications, 2000);
 
     let channel: ReturnType<typeof supabase.channel> | null = null;
     try {
@@ -83,6 +83,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
 
     return () => {
+      clearTimeout(t);
       if (channel) supabase.removeChannel(channel);
     };
   }, [user?.id, fetchNotifications]);

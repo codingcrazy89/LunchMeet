@@ -25,14 +25,17 @@ function AppHeader() {
 
   useEffect(() => {
     if (user?.id) {
-      loadProfileName();
+      const t = setTimeout(loadProfileName, 2000);
       const channel = supabase
         .channel(`profile-${user.id}`)
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, (payload) => {
           setProfileName(payload.new.name || null);
         })
         .subscribe();
-      return () => { supabase.removeChannel(channel); };
+      return () => {
+        clearTimeout(t);
+        supabase.removeChannel(channel);
+      };
     } else setProfileName(null);
   }, [user?.id]);
 
@@ -179,9 +182,13 @@ export default function TabsLayout() {
 
   useEffect(() => {
     if (!user?.id) return;
-    checkLunchesNeedingRating();
+    // Defer 3s so it doesn't compete with initial fetchLunches (reduces timeout risk)
+    const t = setTimeout(checkLunchesNeedingRating, 3000);
     const interval = setInterval(checkLunchesNeedingRating, 60 * 1000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(t);
+      clearInterval(interval);
+    };
   }, [user?.id, checkLunchesNeedingRating]);
 
   // Redirect to login if not authenticated

@@ -58,6 +58,9 @@ export default function NotificationsModal({
         else
           router.push("/(tabs)");
         break;
+      case "user_report":
+        router.push("/(tabs)");
+        break;
       default:
         router.push("/(tabs)");
     }

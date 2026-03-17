@@ -1,6 +1,7 @@
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, Image, Linking, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import ReportUserModal from "../../components/ReportUserModal";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ProfilePhotoImage from "../../components/ProfilePhotoImage";
 import ZoomableImage from "../../components/ZoomableImage";
@@ -45,6 +46,9 @@ export default function PublicProfile() {
   const [enlargedPhoto, setEnlargedPhoto] = useState<string | null>(null);
   const [isContact, setIsContact] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [reportComment, setReportComment] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   // Redirect to login if not authenticated
   if (!authLoading && !user) {
@@ -87,6 +91,41 @@ export default function PublicProfile() {
     }
     setIsContact(true);
     invalidateContacts();
+  };
+
+  const handleReportPress = () => {
+    setReportComment("");
+    setReportModalVisible(true);
+  };
+
+  const submitReport = async () => {
+    if (!user?.id || !id || id === user.id || reportSubmitting) return;
+    const comment = reportComment.trim();
+    if (comment.split(/\s+/).filter(Boolean).length < 50) return;
+
+    setReportSubmitting(true);
+    const { error } = await supabase.from("user_reports").insert({
+      reporter_id: user.id,
+      reported_id: id,
+      comment,
+    });
+    setReportSubmitting(false);
+
+    if (error) {
+      if (Platform.OS === "web") {
+        window.alert("Could not submit report: " + error.message);
+      } else {
+        Alert.alert("Error", "Could not submit report: " + error.message);
+      }
+      return;
+    }
+    setReportModalVisible(false);
+    setReportComment("");
+    if (Platform.OS === "web") {
+      window.alert("Report submitted. Thank you for helping keep LunchMeet safe.");
+    } else {
+      Alert.alert("Report Submitted", "Thank you for helping keep LunchMeet safe.");
+    }
   };
 
   const handleAddContactPress = () => {
@@ -275,9 +314,28 @@ export default function PublicProfile() {
               {addingContact ? "Adding…" : isContact ? "In contacts" : "Add Contact"}
             </Text>
           </Pressable>
+          <Pressable
+            onPress={handleReportPress}
+            style={styles.reportButton}
+          >
+            <Text style={styles.reportButtonText}>Report</Text>
+          </Pressable>
         </View>
       )}
       </ScrollView>
+
+      <ReportUserModal
+        visible={reportModalVisible}
+        reportedName={profile?.name ?? "this user"}
+        comment={reportComment}
+        onCommentChange={setReportComment}
+        onSubmit={submitReport}
+        onClose={() => {
+          setReportModalVisible(false);
+          setReportComment("");
+        }}
+        submitting={reportSubmitting}
+      />
     </View>
   );
 }
@@ -421,6 +479,21 @@ const styles = StyleSheet.create({
   addContactButtonText: {
     ...Typography.button,
     color: "#fff",
+    fontSize: 14,
+  },
+  reportButton: {
+    marginTop: Spacing.md,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.lg,
+    backgroundColor: "transparent",
+    borderRadius: Radius.sm,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.error,
+  },
+  reportButtonText: {
+    ...Typography.button,
+    color: Colors.error,
     fontSize: 14,
   },
   modalOverlay: {

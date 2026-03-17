@@ -760,20 +760,40 @@ export default function HostScreen() {
                 </Text>
                 <Text style={styles.datePickerChevron}>📅</Text>
               </Pressable>
-              {showDatePicker && (
+              {Platform.OS === "ios" && showDatePicker ? (
+                <Modal
+                  visible={true}
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowDatePicker(false)}
+                >
+                  <Pressable
+                    style={styles.pickerModalOverlay}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+                      <DateTimePicker
+                        value={pickerDate}
+                        mode="date"
+                        display="spinner"
+                        minimumDate={new Date()}
+                        onChange={onDatePickerChange}
+                      />
+                      <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
+                        <Text style={styles.datePickerDoneText}>Done</Text>
+                      </Pressable>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
+              ) : showDatePicker && Platform.OS === "android" ? (
                 <DateTimePicker
                   value={pickerDate}
                   mode="date"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  display="default"
                   minimumDate={new Date()}
                   onChange={onDatePickerChange}
                 />
-              )}
-              {Platform.OS === "ios" && showDatePicker && (
-                <Pressable style={styles.datePickerDone} onPress={() => setShowDatePicker(false)}>
-                  <Text style={styles.datePickerDoneText}>Done</Text>
-                </Pressable>
-              )}
+              ) : null}
             </View>
 
             {/* Time - Clock Picker */}
@@ -785,21 +805,42 @@ export default function HostScreen() {
                 </Text>
                 <Text style={styles.datePickerChevron}>🕐</Text>
               </Pressable>
-              {showTimePicker && (
+              {Platform.OS === "ios" && showTimePicker ? (
+                <Modal
+                  visible={true}
+                  transparent
+                  animationType="slide"
+                  onRequestClose={() => setShowTimePicker(false)}
+                >
+                  <Pressable
+                    style={styles.pickerModalOverlay}
+                    onPress={() => setShowTimePicker(false)}
+                  >
+                    <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
+                      <DateTimePicker
+                        value={pickerTime}
+                        mode="time"
+                        display="spinner"
+                        is24Hour={false}
+                        minuteInterval={30}
+                        onChange={onTimePickerChange}
+                      />
+                      <Pressable style={styles.datePickerDone} onPress={() => setShowTimePicker(false)}>
+                        <Text style={styles.datePickerDoneText}>Done</Text>
+                      </Pressable>
+                    </Pressable>
+                  </Pressable>
+                </Modal>
+              ) : showTimePicker && Platform.OS === "android" ? (
                 <DateTimePicker
                   value={pickerTime}
                   mode="time"
-                  display={Platform.OS === "ios" ? "spinner" : "default"}
+                  display="default"
                   is24Hour={false}
                   minuteInterval={30}
                   onChange={onTimePickerChange}
                 />
-              )}
-              {Platform.OS === "ios" && showTimePicker && (
-                <Pressable style={styles.datePickerDone} onPress={() => setShowTimePicker(false)}>
-                  <Text style={styles.datePickerDoneText}>Done</Text>
-                </Pressable>
-              )}
+              ) : null}
             </View>
 
             {/* Number of Guests - Mobile Input */}
@@ -1186,6 +1227,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   datePickerDoneText: { color: "#fff", ...Typography.button },
+  pickerModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  pickerModalContent: {
+    backgroundColor: Colors.surface,
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    paddingBottom: Spacing.xxl,
+  },
   guestsContainer: { marginBottom: Spacing.xl },
   hint: { ...Typography.caption, marginTop: 4 },
   visibilityContainer: {

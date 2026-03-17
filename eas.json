@@ -1,39 +1,38 @@
 {
   "cli": {
-    "version": ">= 14.0.0",
-    "appVersionSource": "remote"
+    "version": ">= 16.0.0"
   },
   "build": {
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "android": {
-        "buildType": "apk",
-        "gradleCommand": ":app:assembleRelease"
-      },
       "ios": {
         "simulator": false
       },
-      "channel": "development",
-      "environment": "development"
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://oamukmulfmmlkxrjtjfx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hbXVrbXVsZm1tbGt4cmp0amZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTY1MDUsImV4cCI6MjA4MTIzMjUwNX0.cDXPvXE-3Ce9Uu2hzmZx_bTWa30tazDx9RiLafEmg-c",
+        "EXPO_PUBLIC_PLACES_PROXY_URL": "https://lunchmeet-places-proxy.onrender.com"
+      }
     },
     "preview": {
-      "distribution": "internal",
+      "distribution": "store",
       "android": {
-        "buildType": "apk"
+        "distribution": "internal"
       },
-      "channel": "preview",
-      "environment": "preview"
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://oamukmulfmmlkxrjtjfx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hbXVrbXVsZm1tbGt4cmp0amZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTY1MDUsImV4cCI6MjA4MTIzMjUwNX0.cDXPvXE-3Ce9Uu2hzmZx_bTWa30tazDx9RiLafEmg-c",
+        "EXPO_PUBLIC_PLACES_PROXY_URL": "https://lunchmeet-places-proxy.onrender.com"
+      }
     },
-    "production": {
-      "android": {
-        "buildType": "apk"
-      },
-      "channel": "production",
-      "environment": "production"
-    }
+    "production": {}
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6760374356"
+      }
+    }
   }
 }

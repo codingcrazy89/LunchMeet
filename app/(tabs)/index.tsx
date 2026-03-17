@@ -23,13 +23,14 @@ type ViewMode = "list" | "map";
 
 export default function LunchesScreen() {
   const router = useRouter();
-  const { lunches, loading, joinLunch, acceptRequest, denyRequest, leaveLunch, closeLunch, submitRating, invites, acceptInvite, declineInvite, fetchLunches, version } = useLunches();
+  const { lunches, loading, fetchError, joinLunch, acceptRequest, denyRequest, leaveLunch, closeLunch, submitRating, invites, acceptInvite, declineInvite, fetchLunches, version } = useLunches();
   const { user } = useAuth();
   const [showMessage, setShowMessage] = useState<string | null>(null);
   const [processingRequest, setProcessingRequest] = useState<string | null>(null);
   const [processingInvite, setProcessingInvite] = useState<string | null>(null);
   const [ratingModal, setRatingModal] = useState<{ lunchId: string; attendeeId: string; attendeeName: string } | null>(null);
   const [ratingValue, setRatingValue] = useState(0);
+  const [ratingComment, setRatingComment] = useState("");
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
   const [refreshing, setRefreshing] = useState(false);
@@ -547,20 +548,25 @@ export default function LunchesScreen() {
         visible={!!ratingModal}
         attendeeName={ratingModal?.attendeeName ?? ""}
         rating={ratingValue}
+        comment={ratingComment}
         onRatingChange={setRatingValue}
+        onCommentChange={setRatingComment}
         onSubmit={async () => {
           if (!ratingModal) return;
           setRatingSubmitting(true);
-          const ok = await submitRating(ratingModal.attendeeId, ratingModal.lunchId, ratingValue);
+          const commentToUse = ratingValue >= 1 && ratingValue < 3 ? ratingComment : undefined;
+          const ok = await submitRating(ratingModal.attendeeId, ratingModal.lunchId, ratingValue, commentToUse);
           setRatingSubmitting(false);
           if (ok) {
             setRatingModal(null);
             setRatingValue(0);
+            setRatingComment("");
           }
         }}
         onClose={() => {
           setRatingModal(null);
           setRatingValue(0);
+          setRatingComment("");
         }}
         submitting={ratingSubmitting}
       />
@@ -607,9 +613,19 @@ export default function LunchesScreen() {
         </View>
       )}
 
-      {loading ? (
+      {loading && !fetchError ? (
         <View style={styles.center}>
           <Text style={[Typography.bodySecondary, { color: Colors.textMuted }]}>Loading lunches…</Text>
+        </View>
+      ) : fetchError ? (
+        <View style={[styles.center, { paddingHorizontal: Spacing.xl }]}>
+          <Text style={[Typography.bodySecondary, { color: Colors.error, textAlign: "center", marginBottom: Spacing.md }]}>{fetchError}</Text>
+          <Pressable
+            onPress={() => fetchLunches()}
+            style={({ pressed }) => [styles.retryButton, pressed && { opacity: 0.8 }]}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </Pressable>
         </View>
       ) : viewMode === "map" ? (
         <View style={styles.mapViewContainer}>
@@ -1108,7 +1124,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: Colors.background,
+  },
+  retryButton: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    backgroundColor: Colors.primary,
+    borderRadius: Radius.md,
+  },
+  retryButtonText: {
+    ...Typography.button,
+    color: "#fff",
   },
   buttonContainer: {
     marginTop: Spacing.sm,
