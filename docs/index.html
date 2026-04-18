@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="LunchMeet — plan lunch meetups at real restaurants, join groups, and chat with your table." />
+  <title>LunchMeet — Lunch meetups, made simple</title>
+  <style>
+    :root { color-scheme: light dark; --coral: #e85d4c; --coral-dark: #d04a3a; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      line-height: 1.5;
+      margin: 0;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #f3f4f6; background: #111827; }
+    }
+    .wrap { max-width: 42rem; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+    .hero {
+      text-align: center;
+      padding: 2rem 0 1rem;
+    }
+    .logo {
+      font-size: 1.75rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--coral);
+      margin-bottom: 0.5rem;
+    }
+    .tagline {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin: 0 0 0.75rem;
+    }
+    .sub {
+      color: #6b7280;
+      font-size: 1rem;
+      max-width: 28rem;
+      margin: 0 auto 1.5rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .sub { color: #9ca3af; }
+    }
+    .btn {
+      display: inline-block;
+      background: var(--coral);
+      color: #fff !important;
+      text-decoration: none;
+      font-weight: 600;
+      padding: 0.65rem 1.5rem;
+      border-radius: 999px;
+      margin: 0.25rem;
+    }
+    .btn:hover { background: var(--coral-dark); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--coral) !important;
+      border: 2px solid var(--coral);
+    }
+    .btn-secondary:hover { background: rgba(232, 93, 76, 0.08); }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-top: 1.25rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .card { background: #1f2937; border-color: #374151; }
+    }
+    .card h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+    ul { margin: 0; padding-left: 1.25rem; }
+    li { margin-bottom: 0.35rem; }
+    footer {
+      text-align: center;
+      margin-top: 2.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      font-size: 0.9rem;
+      color: #6b7280;
+    }
+    @media (prefers-color-scheme: dark) {
+      footer { border-color: #374151; color: #9ca3af; }
+    }
+    footer a { color: var(--coral); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <div class="logo">LunchMeet</div>
+      <p class="tagline">Real restaurants. Real people. Lunch plans that actually happen.</p>
+      <p class="sub">
+        Discover public lunches, host your own, chat with your group, and meet face-to-face over food.
+      </p>
+      <p>
+        <!-- Uses your App Store Connect Apple ID; works once the app is on the store -->
+        <a class="btn" id="app-store" href="https://apps.apple.com/app/id6760374356">Download on the App Store</a>
+        <a class="btn btn-secondary" href="support/">Support</a>
+      </p>
+    </header>
+
+    <div class="card">
+      <h2>What you can do</h2>
+      <ul>
+        <li>Host a lunch — pick a place, time, and who can join</li>
+        <li>Browse nearby restaurants and lunches that fit your day</li>
+        <li>Group chat for each lunch so everyone stays in sync</li>
+        <li>Public or invite-only — you choose the vibe</li>
+      </ul>
+    </div>
+
+    <footer>
+      <p>© <span id="y"></span> LunchMeet · <a href="support/">Help &amp; contact</a></p>
+    </footer>
+  </div>
+  <script>
+    document.getElementById("y").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
