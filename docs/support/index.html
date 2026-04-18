@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LunchMeet — Support</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      line-height: 1.5;
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 1.5rem;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #f3f4f6; background: #111827; }
+      a { color: #f87171; }
+    }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    h2 { font-size: 1.1rem; margin-top: 1.75rem; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .card { background: #1f2937; border-color: #374151; }
+    }
+    a { color: #e85d4c; font-weight: 600; }
+    ul { padding-left: 1.25rem; }
+    .muted { font-size: 0.9rem; opacity: 0.85; }
+  </style>
+</head>
+<body>
+  <h1>LunchMeet support</h1>
+  <p class="muted">Help for the LunchMeet iOS app — plan lunches, meet people, and chat with your group.</p>
+
+  <div class="card">
+    <h2>Contact us</h2>
+    <p>
+      Email:
+      <a id="support-mail" href="mailto:jpmitchell.grad@hotmail.com?subject=LunchMeet%20support">jpmitchell.grad@hotmail.com</a>
+    </p>
+    <p class="muted">We try to reply within a few business days. Include your device model and iOS version if you’re reporting a bug.</p>
+  </div>
+
+  <div class="card">
+    <h2>Common questions</h2>
+    <ul>
+      <li><strong>Sign-in issues:</strong> Use the same method you used to create your account (e.g. Apple). If you’re stuck, email us from the address on your account if possible.</li>
+      <li><strong>Location:</strong> LunchMeet uses your location to show nearby restaurants and maps. You can change this anytime in <strong>Settings → LunchMeet → Location</strong>.</li>
+      <li><strong>Safety / reporting:</strong> Use in-app reporting and blocking tools. For urgent safety concerns, contact local authorities.</li>
+    </ul>
+  </div>
+
+  <p class="muted" style="margin-top: 2rem;">© <span id="y"></span> LunchMeet.</p>
+  <script>
+    document.getElementById("y").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
