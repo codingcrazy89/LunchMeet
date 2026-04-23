@@ -1,3 +1,5 @@
+# Serves the contents of /docs (landing, privacy, support) on GitHub Pages.
+# Set repo: Settings → Pages → Build and deployment → Source: GitHub Actions
 name: GitHub Pages
 
 on:

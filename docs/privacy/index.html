@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LunchMeet — Privacy Policy</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      line-height: 1.5;
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 1.5rem;
+      color: #1a1a1a;
+      background: #fafafa;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { color: #f3f4f6; background: #111827; }
+      a { color: #f87171; }
+    }
+    h1 { font-size: 1.5rem; margin-top: 0; }
+    h2 { font-size: 1.1rem; margin-top: 1.75rem; }
+    .card {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 1.25rem;
+      margin-top: 1rem;
+    }
+    @media (prefers-color-scheme: dark) {
+      .card { background: #1f2937; border-color: #374151; }
+    }
+    a { color: #e85d4c; font-weight: 600; }
+    ul { padding-left: 1.25rem; }
+    .muted { font-size: 0.9rem; opacity: 0.85; }
+    nav { margin-bottom: 1rem; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <nav><a href="../">← LunchMeet</a> · <a href="../support/">Support</a></nav>
+  <h1>Privacy Policy</h1>
+  <p class="muted">Last updated: April 19, 2026. This policy describes how LunchMeet (“we”, “the app”) handles information when you use our iOS application.</p>
+
+  <div class="card">
+    <h2>Account and authentication</h2>
+    <p>We use Supabase for account services. You may sign in with Apple, email and password, or other methods we offer. Authentication data is processed according to the method you choose and our backend configuration.</p>
+  </div>
+
+  <div class="card">
+    <h2>Profile and photos</h2>
+    <p>We store profile information you provide (for example, display name) and profile photos you choose from your photo library. The app is configured not to request camera access for image picking.</p>
+  </div>
+
+  <div class="card">
+    <h2>Location</h2>
+    <p>With your permission, we use your device location while you use the app to show maps, nearby restaurants, and lunch-related features. You can change location access in iOS Settings for LunchMeet.</p>
+  </div>
+
+  <div class="card">
+    <h2>Messaging</h2>
+    <p>Group chat messages for lunches are delivered through our backend (including realtime features where enabled). Do not share sensitive personal data you are not comfortable having processed for this purpose.</p>
+  </div>
+
+  <div class="card">
+    <h2>Ratings and safety</h2>
+    <p>Optional ratings after meetups and user reports may be stored to improve trust and safety. Use in-app tools responsibly.</p>
+  </div>
+
+  <div class="card">
+    <h2>Notifications</h2>
+    <p>If you enable notifications, we may send you alerts related to lunches and account activity according to your device and in-app settings.</p>
+  </div>
+
+  <div class="card">
+    <h2>Contact</h2>
+    <p>Questions about this policy: <a href="mailto:jpmitchell.grad@hotmail.com?subject=LunchMeet%20privacy">jpmitchell.grad@hotmail.com</a></p>
+  </div>
+
+  <p class="muted" style="margin-top: 2rem;">© <span id="y"></span> LunchMeet.</p>
+  <script>
+    document.getElementById("y").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
