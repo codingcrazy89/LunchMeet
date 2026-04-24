@@ -21,6 +21,8 @@ module.exports = {
     },
     ios: {
       bundleIdentifier: "com.lunchmeet.app",
+      // Increment for each App Store / TestFlight binary (ITMS, review, etc.).
+      buildNumber: "13",
       supportsTablet: true,
       usesAppleSignIn: true,
       infoPlist: {
