@@ -237,7 +237,7 @@ export default function ChatScreen() {
     if (error) {
       console.error("Error loading messages:", error);
       setLoading(false);
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("Error loading messages: " + error.message);
       }
       return;
@@ -315,10 +315,9 @@ export default function ChatScreen() {
             ? (Array.isArray(profileData.photos) ? profileData.photos : (profileData.photos ? [profileData.photos] : []))
             : [];
           const photos = rawPhotos.length > 0 ? await preparePhotosForDisplay(rawPhotos) : [];
-          const normalizedProfile = profileData ? {
-            name: profileData.name,
-            photos
-          } : null;
+          const normalizedProfile = profileData
+            ? { name: String(profileData.name ?? ""), photos }
+            : undefined;
 
           const newMessage: Message = {
             id: payload.new.id,
@@ -385,7 +384,7 @@ export default function ChatScreen() {
 
     if (error) {
       console.error("Error sending message:", error);
-      if (typeof window !== "undefined" && window.alert) {
+      if (typeof window !== "undefined") {
         alert("Failed to send message: " + error.message + ". This might be a permissions issue. Please check your database Row Level Security policies.");
       }
       setNewMessage(messageText); // Restore message

@@ -1,3 +1,4 @@
+import type { Region } from "react-native-maps";
 import DateTimePicker from "@react-native-community/datetimepicker"
 import * as Location from "expo-location"
 import { useFocusEffect, useRouter } from "expo-router"
@@ -1058,7 +1059,7 @@ export default function HostScreen() {
                   ref={nearbyMapRef}
                   style={styles.nearbyMap}
                   initialRegion={mapRegion}
-                  onRegionChangeComplete={(region) => {
+                  onRegionChangeComplete={(region: Region) => {
                     setMapRegion(region)
                     if (nearbyFetchDebounce.current) clearTimeout(nearbyFetchDebounce.current)
                     nearbyFetchDebounce.current = setTimeout(() => {

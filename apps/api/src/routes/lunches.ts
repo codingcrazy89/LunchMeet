@@ -36,7 +36,7 @@ const nearbyQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
 
-/** Shape returned to clients. Deliberately excludes nothing the viewer may not see. */
+/** Shape returned to clients. Every row here has already passed the visibility filter. */
 const lunchColumns = {
   id: lunches.id,
   hostId: lunches.hostId,
@@ -51,6 +51,14 @@ const lunchColumns = {
   description: lunches.description,
   isPublic: lunches.isPublic,
   createdAt: lunches.createdAt,
+  hostName: profiles.name,
+  hostAge: profiles.age,
+  /** Confirmed seats taken, computed rather than stored. v1 kept a mutable
+   *  counter that drifted whenever an update failed midway. */
+  acceptedCount: sql<number>`(
+    select count(*) from lunch_attendees a
+    where a.lunch_id = ${lunches.id} and a.status = 'accepted'
+  )::int`,
 };
 
 export const lunchRoutes = new Hono<{ Variables: AppVariables }>()
@@ -74,6 +82,7 @@ export const lunchRoutes = new Hono<{ Variables: AppVariables }>()
     const rows = await db
       .select(lunchColumns)
       .from(lunches)
+      .leftJoin(profiles, eq(profiles.userId, lunches.hostId))
       .where(
         and(
           visibleToViewer(user.id),
@@ -101,6 +110,7 @@ export const lunchRoutes = new Hono<{ Variables: AppVariables }>()
     const rows = await db
       .select({ ...lunchColumns, distanceMiles: distance })
       .from(lunches)
+      .leftJoin(profiles, eq(profiles.userId, lunches.hostId))
       .where(
         and(
           visibleToViewer(user.id),

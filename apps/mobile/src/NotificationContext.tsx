@@ -1,143 +1,65 @@
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { useRouter } from "expo-router";
-import { useAuth } from "./AuthContext";
-import { supabase } from "./lib/supabase";
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import {
+  useMarkAllRead,
+  useMarkRead,
+  useNotifications as useNotificationQuery,
+  type Notification,
+} from "./features/notifications/queries";
 
-export type Notification = {
-  id: string;
-  user_id: string;
-  type: "invite" | "join_request" | "cohost_added" | "new_message" | "request_accepted" | "rate_attendees" | "user_report";
-  title: string;
-  body: string | null;
-  data: Record<string, unknown>;
-  read_at: string | null;
-  created_at: string;
-};
+export type { Notification } from "./features/notifications/queries";
 
-type NotificationContextType = {
+/**
+ * Compatibility shim over the notifications query.
+ *
+ * Keeps v1's interface so `AppHeader` and `NotificationsModal` continue to
+ * work. The Supabase realtime subscription that used to drive this is replaced
+ * by the query's poll, and by the WebSocket added in phase 4.
+ *
+ * @deprecated Use the hooks in features/notifications directly.
+ */
+
+interface NotificationContextValue {
   notifications: Notification[];
   unreadCount: number;
-  markAsRead: (id: string) => Promise<void>;
-  markAllAsRead: () => Promise<void>;
   latestToast: Notification | null;
+  fetchNotifications: () => void;
+  markAsRead: (id: string) => void;
+  markAllAsRead: () => void;
   dismissToast: () => void;
-  fetchNotifications: () => Promise<void>;
-};
-
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
-
-export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
-  const router = useRouter();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [latestToast, setLatestToast] = useState<Notification | null>(null);
-
-  const fetchNotifications = useCallback(async () => {
-    if (!user?.id) return;
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("id, user_id, type, title, body, data, read_at, created_at")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (!error) {
-        setNotifications((data as Notification[]) ?? []);
-      }
-    } catch (err) {
-      // Silently ignore - notifications table may not exist or network may fail
-      console.warn("Could not fetch notifications:", err);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!user?.id) {
-      setNotifications([]);
-      setLatestToast(null);
-      return;
-    }
-    const t = setTimeout(fetchNotifications, 2000);
-
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-    try {
-      channel = supabase
-        .channel(`notifications:${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notifications",
-            filter: `user_id=eq.${user.id}`,
-          },
-          (payload) => {
-            const n = payload.new as Notification;
-            setNotifications((prev) => [n, ...prev]);
-            setLatestToast(n);
-          }
-        )
-        .subscribe();
-    } catch (err) {
-      // Realtime may fail if notifications table doesn't exist
-      console.warn("Could not subscribe to notifications:", err);
-    }
-
-    return () => {
-      clearTimeout(t);
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [user?.id, fetchNotifications]);
-
-  const markAsRead = useCallback(
-    async (id: string) => {
-      if (!user?.id) return;
-      await supabase
-        .from("notifications")
-        .update({ read_at: new Date().toISOString() })
-        .eq("id", id)
-        .eq("user_id", user.id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n))
-      );
-    },
-    [user?.id]
-  );
-
-  const markAllAsRead = useCallback(async () => {
-    if (!user?.id) return;
-    await supabase
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("user_id", user.id)
-      .is("read_at", null);
-    setNotifications((prev) =>
-      prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() }))
-    );
-  }, [user?.id]);
-
-  const dismissToast = useCallback(() => setLatestToast(null), []);
-
-  const unreadCount = notifications.filter((n) => !n.read_at).length;
-
-  const value: NotificationContextType = {
-    notifications,
-    unreadCount,
-    markAsRead,
-    markAllAsRead,
-    latestToast,
-    dismissToast,
-    fetchNotifications,
-  };
-
-  return (
-    <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>
-  );
 }
 
-export function useNotifications() {
-  const ctx = useContext(NotificationContext);
-  if (ctx === undefined) {
-    throw new Error("useNotifications must be used within NotificationProvider");
+const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
+
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const query = useNotificationQuery();
+  const markRead = useMarkRead();
+  const markAll = useMarkAllRead();
+  const [dismissed, setDismissed] = useState(false);
+
+  const fetchNotifications = useCallback(() => {
+    void query.refetch();
+  }, [query]);
+
+  const value = useMemo<NotificationContextValue>(
+    () => ({
+      notifications: query.data?.notifications ?? [],
+      unreadCount: query.data?.unreadCount ?? 0,
+      latestToast: dismissed ? null : (query.data?.notifications[0] ?? null),
+      fetchNotifications,
+      markAsRead: (id: string) => markRead.mutate(id),
+      markAllAsRead: () => markAll.mutate(),
+      dismissToast: () => setDismissed(true),
+    }),
+    [query.data, dismissed, fetchNotifications, markRead, markAll]
+  );
+
+  return <NotificationContext.Provider value={value}>{children}</NotificationContext.Provider>;
+}
+
+export function useNotifications(): NotificationContextValue {
+  const context = useContext(NotificationContext);
+  if (!context) {
+    throw new Error("useNotifications must be used within a NotificationProvider.");
   }
-  return ctx;
+  return context;
 }

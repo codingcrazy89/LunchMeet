@@ -33,10 +33,10 @@ export default function NotificationsModal({
   onMarkAllAsRead,
 }: NotificationsModalProps) {
   const router = useRouter();
-  const unreadCount = notifications.filter((n) => !n.read_at).length;
+  const unreadCount = notifications.filter((n) => !n.readAt).length;
 
   const handleNotificationPress = (n: Notification) => {
-    if (!n.read_at) onMarkAsRead(n.id);
+    if (!n.readAt) onMarkAsRead(n.id);
     onClose();
     const data = n.data as Record<string, string>;
     switch (n.type) {
@@ -95,7 +95,7 @@ export default function NotificationsModal({
               notifications.map((n) => (
                 <Pressable
                   key={n.id}
-                  style={[styles.notificationRow, !n.read_at && styles.notificationRowUnread]}
+                  style={[styles.notificationRow, !n.readAt && styles.notificationRowUnread]}
                   onPress={() => handleNotificationPress(n)}
                 >
                   <View style={styles.notificationContent}>
@@ -105,7 +105,7 @@ export default function NotificationsModal({
                         {n.body}
                       </Text>
                     ) : null}
-                    <Text style={styles.notificationTime}>{formatTime(n.created_at)}</Text>
+                    <Text style={styles.notificationTime}>{formatTime(n.createdAt)}</Text>
                   </View>
                 </Pressable>
               ))

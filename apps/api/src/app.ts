@@ -9,7 +9,7 @@ import { ApiError } from "./lib/errors.js";
 import { withSession, type AppVariables } from "./middleware/session.js";
 import { attendeeRoutes } from "./routes/attendees.js";
 import { chatRoutes } from "./routes/chat.js";
-import { inviteRoutes } from "./routes/invites.js";
+import { inviteRoutes, lunchInviteRoutes } from "./routes/invites.js";
 import { lunchRoutes } from "./routes/lunches.js";
 import { profileRoutes } from "./routes/profiles.js";
 import { ratingRoutes } from "./routes/ratings.js";
@@ -48,6 +48,7 @@ export function createApp() {
     .route("/lunches", attendeeRoutes)
     .route("/lunches", chatRoutes)
     .route("/lunches", ratingRoutes)
+    .route("/lunches", lunchInviteRoutes)
     .route("/", inviteRoutes)
     .route("/", socialRoutes);
 

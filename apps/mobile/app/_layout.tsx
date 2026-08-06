@@ -1,31 +1,25 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { ActivityIndicator, InteractionManager, View } from "react-native";
-import NotificationToast from "../components/NotificationToast";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import ErrorBoundary from "../components/ErrorBoundary";
-import LogViewerModal from "../components/LogViewerModal";
 import { Colors } from "../constants/theme";
-import { AppLogProvider } from "../src/AppLogContext";
 import { AuthProvider, useAuth } from "../src/AuthContext";
 import { ContactsProvider } from "../src/ContactsContext";
 import { LunchProvider } from "../src/LunchContext";
-import { NotificationProvider, useNotifications } from "../src/NotificationContext";
+import { NotificationProvider } from "../src/NotificationContext";
+import { queryClient } from "../src/api/queryClient";
+import { NotificationToastLayer } from "../src/features/notifications/NotificationToastLayer";
 
 // Keep splash visible until we hide it (guard for standalone builds)
 try {
   SplashScreen.preventAutoHideAsync();
-} catch (_) {}
-
-function NotificationToastLayer() {
-  const { latestToast, dismissToast } = useNotifications();
-  if (!latestToast) return null;
-  return (
-    <NotificationToast notification={latestToast} onDismiss={dismissToast} />
-  );
+} catch {
+  // Splash control is unavailable in some standalone build configurations.
 }
 
 function RootNavigator() {
@@ -33,14 +27,19 @@ function RootNavigator() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#f1f5f9" }}>
-        <ActivityIndicator color="#0d9488" size="large" />
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          backgroundColor: Colors.background,
+        }}
+      >
+        <ActivityIndicator color={Colors.primary} size="large" />
       </View>
     );
   }
 
-  // If user is not authenticated, redirect to login
-  // The tabs layout will also check authentication as a secondary safeguard
   return (
     <Stack
       screenOptions={{
@@ -57,7 +56,8 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
-  // Hide native splash: try after interactions, and force-hide after 2.5s so we never get stuck on Android.
+  // Hide the native splash after interactions, with a timeout so a slow first
+  // render can never leave the app stuck behind it on Android.
   useEffect(() => {
     let cancelled = false;
     const hide = () => {
@@ -72,31 +72,34 @@ export default function RootLayout() {
     };
   }, []);
 
+  /**
+   * Provider tree, down from six to three.
+   *
+   * QueryClientProvider replaces LunchContext, ContactsContext and
+   * NotificationContext, whose combined job was caching server state and
+   * signalling when to refetch. AppLogProvider is gone entirely: it patched
+   * console methods into a buffer that captured auth deep links containing
+   * session tokens.
+   */
   return (
     <ErrorBoundary>
       <SafeAreaProvider style={{ flex: 1, backgroundColor: Colors.background }}>
         <GestureHandlerRootView style={{ flex: 1, backgroundColor: Colors.background }}>
           <StatusBar style="light" />
-          <AuthProvider>
-            <AppLogProvider>
+          <QueryClientProvider client={queryClient}>
+            <AuthProvider>
               <ContactsProvider>
                 <LunchProvider>
                   <NotificationProvider>
                     <RootNavigator />
                     <NotificationToastLayer />
-                    <LogViewerModal />
                   </NotificationProvider>
                 </LunchProvider>
               </ContactsProvider>
-            </AppLogProvider>
-          </AuthProvider>
+            </AuthProvider>
+          </QueryClientProvider>
         </GestureHandlerRootView>
       </SafeAreaProvider>
     </ErrorBoundary>
   );
 }
-
-
-
-
-

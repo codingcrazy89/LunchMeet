@@ -10,6 +10,63 @@ import { requireOrganiser, resolveLunchContext } from "../policy/lunch.js";
 
 const inviteSchema = z.object({ email: z.email() });
 
+/**
+ * Lunch-scoped invite routes, mounted under /v1/lunches.
+ *
+ * Kept separate from the caller-scoped routes below so the mounted paths are
+ * unambiguous: mounting both at the root produced /v1/:lunchId/invites.
+ */
+export const lunchInviteRoutes = new Hono<{ Variables: AppVariables }>().post(
+  "/:lunchId/invites",
+  requireAuth,
+  zValidator("json", inviteSchema),
+  async (c) => {
+    const user = currentUser(c);
+    const context = await resolveLunchContext(c.req.param("lunchId"), user.id);
+    requireOrganiser(context);
+
+    const { email } = c.req.valid("json");
+
+    const [invitee] = await db
+      .select({ userId: profiles.userId })
+      .from(profiles)
+      .innerJoin(sql`"user"`, sql`"user".id = ${profiles.userId}`)
+      .where(sql`"user".email = ${email}`)
+      .limit(1);
+
+    if (!invitee) {
+      // Deliberately vague: does not confirm whether an account exists.
+      return c.json({ ok: true, delivered: false });
+    }
+    if (invitee.userId === user.id) {
+      throw badRequest("You cannot invite yourself.");
+    }
+
+    const [created] = await db
+      .insert(lunchInvites)
+      .values({
+        lunchId: context.lunch.id,
+        inviterId: user.id,
+        inviteeId: invitee.userId,
+      })
+      .onConflictDoNothing({ target: [lunchInvites.lunchId, lunchInvites.inviteeId] })
+      .returning();
+
+    if (!created) throw conflict("That person has already been invited.");
+
+    await db.insert(notifications).values({
+      userId: invitee.userId,
+      type: "invite",
+      title: `${user.name} invited you to lunch`,
+      body: context.lunch.restaurantName,
+      data: { lunchId: context.lunch.id },
+    });
+
+    return c.json({ ok: true, delivered: true }, 201);
+  }
+);
+
+/** Caller-scoped invite routes, mounted at /v1. */
 export const inviteRoutes = new Hono<{ Variables: AppVariables }>()
 
   /** Invitations addressed to the caller. */
@@ -34,66 +91,6 @@ export const inviteRoutes = new Hono<{ Variables: AppVariables }>()
 
     return c.json({ invites: rows });
   })
-
-  /**
-   * Invite someone by email.
-   *
-   * Resolves the address server-side and never reveals whether it matched, so
-   * this cannot be used to enumerate accounts. v1 exposed
-   * `search_users_by_email`, a SECURITY DEFINER function returning
-   * `auth.users.email` from a LIKE '%…%' search to any authenticated caller.
-   */
-  .post(
-    "/:lunchId/invites",
-    requireAuth,
-    zValidator("json", inviteSchema),
-    async (c) => {
-      const user = currentUser(c);
-      const context = await resolveLunchContext(c.req.param("lunchId"), user.id);
-      requireOrganiser(context);
-
-      const { email } = c.req.valid("json");
-
-      const [invitee] = await db
-        .select({ userId: profiles.userId })
-        .from(profiles)
-        .innerJoin(sql`"user"`, sql`"user".id = ${profiles.userId}`)
-        .where(sql`"user".email = ${email}`)
-        .limit(1);
-
-      if (!invitee) {
-        // Deliberately vague: does not confirm whether an account exists.
-        return c.json({ ok: true, delivered: false });
-      }
-      if (invitee.userId === user.id) {
-        throw badRequest("You cannot invite yourself.");
-      }
-
-      const [created] = await db
-        .insert(lunchInvites)
-        .values({
-          lunchId: context.lunch.id,
-          inviterId: user.id,
-          inviteeId: invitee.userId,
-        })
-        .onConflictDoNothing({
-          target: [lunchInvites.lunchId, lunchInvites.inviteeId],
-        })
-        .returning();
-
-      if (!created) throw conflict("That person has already been invited.");
-
-      await db.insert(notifications).values({
-        userId: invitee.userId,
-        type: "invite",
-        title: `${user.name} invited you to lunch`,
-        body: context.lunch.restaurantName,
-        data: { lunchId: context.lunch.id },
-      });
-
-      return c.json({ ok: true, delivered: true }, 201);
-    }
-  )
 
   .post("/invites/:inviteId/accept", requireAuth, async (c) => {
     const user = currentUser(c);
