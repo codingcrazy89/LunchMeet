@@ -110,7 +110,28 @@ Cloud Storage and Mailpit catches magic-link emails at http://localhost:8025.
 # Architecture
 
 The analysis that motivated the rebuild is in [LunchMeet.arch.md](LunchMeet.arch.md);
-the plan is in [the v2 plan](.cursor/plans/lunchmeet-v2-rebuild.plan.md).
+the plan is in [the v2 plan](.cursor/plans/lunchmeet-v2-rebuild.plan.md). The
+release runbook is [ops/CUTOVER.md](ops/CUTOVER.md), and the credential
+inventory is [ops/PRODUCTION_SECRETS.md](ops/PRODUCTION_SECRETS.md).
+
+## Status
+
+Built and verified locally: the schema and migrations, the API with its
+authorization layer, auth, realtime, push, storage, tests and CI.
+
+Still to do before a release:
+
+- **Screen-level migration.** The data layer is fully replaced, and
+  `LunchContext` adapts the new API to the shapes the screens expect. Several
+  large screens (`chat`, `host`, `profile`, `rate-attendees`) still call
+  Supabase directly for some operations and need porting to the feature hooks
+  in `src/features/`.
+- **End-to-end run on a device.** The API, database, storage and scheduler are
+  verified; the Expo client has been typechecked but not run against the new
+  API on hardware.
+- **Provisioning.** Nothing is deployed. Production Postgres, the GCS bucket,
+  OAuth credentials and a sending domain all need setting up per the secrets
+  manifest.
 
 ## The stack
 
