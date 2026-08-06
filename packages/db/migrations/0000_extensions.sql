@@ -22,3 +22,8 @@ CREATE EXTENSION IF NOT EXISTS earthdistance;
 
 -- Available for hashing needs. Primary keys use the built-in gen_random_uuid().
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Extensions deliberately stay in `public`. Application tables live in the
+-- `lunchmeet` schema, created by the next migration, and the connection uses a
+-- search_path of "lunchmeet, public" so ll_to_earth, gen_random_uuid and the
+-- citext type resolve without qualification.

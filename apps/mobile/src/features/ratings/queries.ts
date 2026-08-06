@@ -13,7 +13,7 @@ export function usePendingRatings(lunchId: string | undefined) {
     queryKey: queryKeys.ratings.pending(lunchId ?? ""),
     enabled: Boolean(lunchId),
     async queryFn() {
-      const response = await api.v1.lunches[":lunchId"].ratings.pending.$get({
+      const response = await api.v2.lunches[":lunchId"].ratings.pending.$get({
         param: { lunchId: lunchId! },
       });
       return unwrap<{ pending: PendingRating[]; lunchHasEnded: boolean }>(response);
@@ -25,7 +25,7 @@ export function useSubmitRating(lunchId: string) {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(input: { ratedId: string; rating: number; comment?: string }) {
-      const response = await api.v1.lunches[":lunchId"].ratings.$post({
+      const response = await api.v2.lunches[":lunchId"].ratings.$post({
         param: { lunchId },
         json: input,
       });

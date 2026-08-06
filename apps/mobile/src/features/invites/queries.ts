@@ -16,7 +16,7 @@ export function useInvites() {
   return useQuery({
     queryKey: queryKeys.invites.mine(),
     async queryFn() {
-      const response = await api.v1.invites.$get();
+      const response = await api.v2.invites.$get();
       const data = await unwrap<{ invites: Invite[] }>(response);
       return data.invites;
     },
@@ -27,7 +27,7 @@ export function useSendInvite(lunchId: string) {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(email: string) {
-      const response = await api.v1.lunches[":lunchId"].invites.$post({
+      const response = await api.v2.lunches[":lunchId"].invites.$post({
         param: { lunchId },
         json: { email },
       });
@@ -44,8 +44,8 @@ export function useAnswerInvite() {
   return useMutation({
     async mutationFn({ inviteId, accept }: { inviteId: string; accept: boolean }) {
       const response = accept
-        ? await api.v1.invites[":inviteId"].accept.$post({ param: { inviteId } })
-        : await api.v1.invites[":inviteId"].decline.$post({ param: { inviteId } });
+        ? await api.v2.invites[":inviteId"].accept.$post({ param: { inviteId } })
+        : await api.v2.invites[":inviteId"].decline.$post({ param: { inviteId } });
       return unwrap<unknown>(response);
     },
     onSuccess() {

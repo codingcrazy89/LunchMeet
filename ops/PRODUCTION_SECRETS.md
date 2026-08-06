@@ -29,6 +29,13 @@ Local development uses a gitignored `.env`, which is never committed and never m
   - Obtain: GCP is the intended cloud, so most likely Cloud SQL for PostgreSQL; a managed alternative such as Neon remains open. The specific choice is made at Phase 8.
   - Store: API host environment, or Secret Manager if the API runs on GCP.
   - Notes: the production role must **not** be a superuser. Because migrations issue `CREATE EXTENSION`, an administrator must pre-create `citext`, `pg_trgm`, `cube`, `earthdistance`, and `pgcrypto` in the production database, or the first deploy fails.
+  - Application tables live in the `lunchmeet` schema, not `public`. Extensions stay in `public`, and the connection sets `search_path = lunchmeet, public` so extension functions resolve. The application role therefore needs `USAGE, CREATE` on `lunchmeet` and `USAGE` on `public`, and nothing more:
+
+    ```sql
+    CREATE SCHEMA IF NOT EXISTS lunchmeet AUTHORIZATION <app_role>;
+    GRANT USAGE ON SCHEMA public TO <app_role>;
+    REVOKE CREATE ON SCHEMA public FROM <app_role>;
+    ```
 
 ## Authentication (Better Auth)
 

@@ -56,7 +56,7 @@ export function usePushRegistration(enabled: boolean): void {
         const token = await registerForPush();
         if (!token || cancelled) return;
 
-        await api.v1.push.tokens.$post({
+        await api.v2.push.tokens.$post({
           json: {
             token,
             platform: Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : "web",

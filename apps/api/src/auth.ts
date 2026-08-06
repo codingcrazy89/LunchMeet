@@ -24,6 +24,21 @@ export const auth = betterAuth({
     schema: { user, session, account, verification },
   }),
 
+  advanced: {
+    database: {
+      /**
+       * UUIDs rather than Better Auth's default 32-character random string, so
+       * user identifiers match every other table in the schema.
+       *
+       * Deliberately not "serial": sequential integers would let anyone walk
+       * /v2/profiles/1, /2, /3 to enumerate the user base, and would leak the
+       * total signup count. That undermines the decision to answer 404 rather
+       * than 403 for resources a caller cannot see.
+       */
+      generateId: "uuid",
+    },
+  },
+
   // The app has no password UI: sign-in is magic link or OAuth only.
   emailAndPassword: { enabled: false },
 

@@ -158,13 +158,13 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       },
 
       async addLunch(input) {
-        const response = await api.v1.lunches.$post({ json: input as never });
+        const response = await api.v2.lunches.$post({ json: input as never });
         await unwrap(response);
         await invalidate();
       },
 
       async joinLunch(lunch) {
-        const response = await api.v1.lunches[":lunchId"].attendees.$post({
+        const response = await api.v2.lunches[":lunchId"].attendees.$post({
           param: { lunchId: lunch.id },
         });
         await unwrap(response);
@@ -173,7 +173,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       },
 
       async acceptRequest(lunchId, attendeeId) {
-        const response = await api.v1.lunches[":lunchId"].attendees[":attendeeId"].accept.$post({
+        const response = await api.v2.lunches[":lunchId"].attendees[":attendeeId"].accept.$post({
           param: { lunchId, attendeeId },
         });
         await unwrap(response);
@@ -181,7 +181,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       },
 
       async denyRequest(lunchId, attendeeId) {
-        const response = await api.v1.lunches[":lunchId"].attendees[":attendeeId"].deny.$post({
+        const response = await api.v2.lunches[":lunchId"].attendees[":attendeeId"].deny.$post({
           param: { lunchId, attendeeId },
         });
         await unwrap(response);
@@ -189,7 +189,7 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       },
 
       async leaveLunch(lunchId) {
-        const response = await api.v1.lunches[":lunchId"].attendees.me.$delete({
+        const response = await api.v2.lunches[":lunchId"].attendees.me.$delete({
           param: { lunchId },
         });
         await unwrap(response);
@@ -197,13 +197,13 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       },
 
       async closeLunch(lunch) {
-        const response = await api.v1.lunches[":id"].$delete({ param: { id: lunch.id } });
+        const response = await api.v2.lunches[":id"].$delete({ param: { id: lunch.id } });
         await unwrap(response);
         await invalidate();
       },
 
       async submitRating(ratedId, lunchId, rating, comment) {
-        const response = await api.v1.lunches[":lunchId"].ratings.$post({
+        const response = await api.v2.lunches[":lunchId"].ratings.$post({
           param: { lunchId },
           json: { ratedId, rating, comment },
         });
@@ -212,13 +212,13 @@ export function LunchProvider({ children }: { children: React.ReactNode }) {
       },
 
       async acceptInvite(inviteId) {
-        const response = await api.v1.invites[":inviteId"].accept.$post({ param: { inviteId } });
+        const response = await api.v2.invites[":inviteId"].accept.$post({ param: { inviteId } });
         await unwrap(response);
         await invalidate();
       },
 
       async declineInvite(inviteId) {
-        const response = await api.v1.invites[":inviteId"].decline.$post({ param: { inviteId } });
+        const response = await api.v2.invites[":inviteId"].decline.$post({ param: { inviteId } });
         await unwrap(response);
         await invalidate();
       },

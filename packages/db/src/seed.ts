@@ -41,19 +41,33 @@ async function main(): Promise<void> {
     console.log("Truncating existing data...");
     await sql`
       truncate table
-        "user", profiles, lunches, lunch_attendees, lunch_invites,
-        chat_rooms, messages, user_ratings, user_contacts, user_reports,
-        notifications, push_tokens, session, account, verification
+        lunchmeet."user", lunchmeet.profiles, lunchmeet.lunches,
+        lunchmeet.lunch_attendees, lunchmeet.lunch_invites,
+        lunchmeet.chat_rooms, lunchmeet.messages, lunchmeet.user_ratings,
+        lunchmeet.user_contacts, lunchmeet.user_reports,
+        lunchmeet.notifications, lunchmeet.push_tokens,
+        lunchmeet.session, lunchmeet.account, lunchmeet.verification
       restart identity cascade
     `;
 
+    /**
+     * Identifiers are generated, never derived from names.
+     *
+     * An earlier version of this seed used readable ids like id.ada!, which
+     * gave the false impression that real user ids came from names. They do
+     * not: Better Auth issues a UUID per user. Seed data that misrepresents
+     * production is worse than no seed data.
+     */
     const people = [
-      { id: "usr_ada", name: "Ada Lovelace", email: "ada@example.com", age: 36, gender: "female", lookingFor: ["networking", "tech talk"] },
-      { id: "usr_alan", name: "Alan Turing", email: "alan@example.com", age: 41, gender: "male", lookingFor: ["networking", "chess"] },
-      { id: "usr_grace", name: "Grace Hopper", email: "grace@example.com", age: 45, gender: "female", lookingFor: ["mentoring"] },
-      { id: "usr_linus", name: "Linus Pauling", email: "linus@example.com", age: 52, gender: "male", lookingFor: ["quiet lunch"] },
-      { id: "usr_katherine", name: "Katherine Johnson", email: "katherine@example.com", age: 38, gender: "female", lookingFor: ["networking"] },
-    ];
+      { key: "ada", name: "Ada Lovelace", email: "ada@example.com", age: 36, gender: "female", lookingFor: ["networking", "tech talk"] },
+      { key: "alan", name: "Alan Turing", email: "alan@example.com", age: 41, gender: "male", lookingFor: ["networking", "chess"] },
+      { key: "grace", name: "Grace Hopper", email: "grace@example.com", age: 45, gender: "female", lookingFor: ["mentoring"] },
+      { key: "linus", name: "Linus Pauling", email: "linus@example.com", age: 52, gender: "male", lookingFor: ["quiet lunch"] },
+      { key: "katherine", name: "Katherine Johnson", email: "katherine@example.com", age: 38, gender: "female", lookingFor: ["networking"] },
+    ].map((person) => ({ ...person, id: randomUUID() }));
+
+    /** Lets the fixtures below refer to people by name without hardcoding ids. */
+    const id = Object.fromEntries(people.map((p) => [p.key, p.id])) as Record<string, string>;
 
     console.log(`Inserting ${people.length} users and profiles...`);
     await db.insert(user).values(
@@ -86,8 +100,8 @@ async function main(): Promise<void> {
     await db.insert(lunches).values([
       {
         id: publicLunchId,
-        hostId: "usr_ada",
-        coHostId: "usr_grace",
+        hostId: id.ada!,
+        coHostId: id.grace!,
         placeId: "seed_place_tartine",
         restaurantName: "Tartine Bakery",
         restaurantAddress: "600 Guerrero St, San Francisco, CA",
@@ -100,7 +114,7 @@ async function main(): Promise<void> {
       },
       {
         id: privateLunchId,
-        hostId: "usr_alan",
+        hostId: id.alan!,
         placeId: "seed_place_zuni",
         restaurantName: "Zuni Cafe",
         restaurantAddress: "1658 Market St, San Francisco, CA",
@@ -113,7 +127,7 @@ async function main(): Promise<void> {
       },
       {
         id: filteredLunchId,
-        hostId: "usr_grace",
+        hostId: id.grace!,
         placeId: "seed_place_nopa",
         restaurantName: "Nopa",
         restaurantAddress: "560 Divisadero St, San Francisco, CA",
@@ -128,7 +142,7 @@ async function main(): Promise<void> {
       },
       {
         id: pastLunchId,
-        hostId: "usr_katherine",
+        hostId: id.katherine!,
         placeId: "seed_place_swan",
         restaurantName: "Swan Oyster Depot",
         restaurantAddress: "1517 Polk St, San Francisco, CA",
@@ -144,51 +158,51 @@ async function main(): Promise<void> {
 
     console.log("Inserting attendees, invites, chat, ratings, notifications...");
     await db.insert(lunchAttendees).values([
-      { lunchId: publicLunchId, userId: "usr_alan", status: "accepted" },
-      { lunchId: publicLunchId, userId: "usr_linus", status: "pending" },
-      { lunchId: privateLunchId, userId: "usr_ada", status: "accepted" },
-      { lunchId: pastLunchId, userId: "usr_ada", status: "accepted" },
-      { lunchId: pastLunchId, userId: "usr_grace", status: "accepted" },
+      { lunchId: publicLunchId, userId: id.alan!, status: "accepted" },
+      { lunchId: publicLunchId, userId: id.linus!, status: "pending" },
+      { lunchId: privateLunchId, userId: id.ada!, status: "accepted" },
+      { lunchId: pastLunchId, userId: id.ada!, status: "accepted" },
+      { lunchId: pastLunchId, userId: id.grace!, status: "accepted" },
     ]);
 
     await db.insert(lunchInvites).values([
-      { lunchId: privateLunchId, inviterId: "usr_alan", inviteeId: "usr_ada", status: "accepted" },
-      { lunchId: privateLunchId, inviterId: "usr_alan", inviteeId: "usr_katherine", status: "pending" },
+      { lunchId: privateLunchId, inviterId: id.alan!, inviteeId: id.ada!, status: "accepted" },
+      { lunchId: privateLunchId, inviterId: id.alan!, inviteeId: id.katherine!, status: "pending" },
     ]);
 
     const roomId = randomUUID();
     await db.insert(chatRooms).values({ id: roomId, lunchId: publicLunchId });
     await db.insert(messages).values([
-      { chatRoomId: roomId, senderId: "usr_ada", body: "Table booked for 12:30." },
-      { chatRoomId: roomId, senderId: "usr_alan", body: "See you there." },
+      { chatRoomId: roomId, senderId: id.ada!, body: "Table booked for 12:30." },
+      { chatRoomId: roomId, senderId: id.alan!, body: "See you there." },
     ]);
 
     await db.insert(userRatings).values([
-      { lunchId: pastLunchId, raterId: "usr_katherine", ratedId: "usr_ada", rating: 5 },
+      { lunchId: pastLunchId, raterId: id.katherine!, ratedId: id.ada!, rating: 5 },
       {
         lunchId: pastLunchId,
-        raterId: "usr_katherine",
-        ratedId: "usr_grace",
+        raterId: id.katherine!,
+        ratedId: id.grace!,
         rating: 2,
         comment: "Arrived very late and left early without saying anything.",
       },
     ]);
 
     await db.insert(userContacts).values([
-      { userId: "usr_ada", contactId: "usr_alan" },
-      { userId: "usr_alan", contactId: "usr_ada" },
+      { userId: id.ada!, contactId: id.alan! },
+      { userId: id.alan!, contactId: id.ada! },
     ]);
 
     await db.insert(notifications).values([
       {
-        userId: "usr_ada",
+        userId: id.ada!,
         type: "join_request",
         title: "Linus Pauling asked to join",
         body: "Tartine Bakery",
         data: { lunchId: publicLunchId },
       },
       {
-        userId: "usr_katherine",
+        userId: id.katherine!,
         type: "invite",
         title: "Alan Turing invited you",
         body: "Zuni Cafe",
@@ -200,6 +214,7 @@ async function main(): Promise<void> {
     console.log("");
     console.log(`Seed complete. ${rows[0]?.count ?? "0"} profiles, 4 lunches.`);
     console.log("  public lunch  :", publicLunchId);
+    console.log("  sample user   :", id.ada, "(Ada Lovelace)");
     console.log("  private lunch :", privateLunchId);
     console.log("  filtered lunch:", filteredLunchId);
     console.log("  past lunch    :", pastLunchId);

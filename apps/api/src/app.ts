@@ -59,7 +59,7 @@ export function createApp() {
   // Better Auth owns everything under /api/auth: sign-in, callbacks, sessions.
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 
-  const v1 = new Hono<{ Variables: AppVariables }>()
+  const v2 = new Hono<{ Variables: AppVariables }>()
     .use("*", withSession)
     .route("/profiles", profileRoutes)
     .route("/photos", photoRoutes)
@@ -71,7 +71,7 @@ export function createApp() {
     .route("/", inviteRoutes)
     .route("/", socialRoutes);
 
-  const routes = app.route("/v1", v1);
+  const routes = app.route("/v2", v2);
 
   /**
    * Only ApiError detail reaches the client. Anything else becomes a bare 500,

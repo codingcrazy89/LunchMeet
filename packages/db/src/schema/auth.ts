@@ -1,5 +1,5 @@
-import { boolean, index, pgTable, text, uniqueIndex } from "drizzle-orm/pg-core";
-import { citext, createdAt, tstz, updatedAt } from "./_shared.js";
+import { boolean, index, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { lunchmeet, citext, createdAt, tstz, updatedAt } from "./_shared.js";
 
 /**
  * Better Auth's core schema, declared here rather than generated.
@@ -9,10 +9,10 @@ import { citext, createdAt, tstz, updatedAt } from "./_shared.js";
  * `lunches` and `lunch_attendees` tables existed in no migration file at all.
  */
 
-export const user = pgTable(
+export const user = lunchmeet.table(
   "user",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     email: citext("email").notNull(),
     emailVerified: boolean("email_verified").notNull().default(false),
@@ -23,15 +23,15 @@ export const user = pgTable(
   (table) => [uniqueIndex("user_email_key").on(table.email)]
 );
 
-export const session = pgTable(
+export const session = lunchmeet.table(
   "session",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     token: text("token").notNull(),
     expiresAt: tstz("expires_at").notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
@@ -43,13 +43,13 @@ export const session = pgTable(
   ]
 );
 
-export const account = pgTable(
+export const account = lunchmeet.table(
   "account",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     accessToken: text("access_token"),
@@ -68,10 +68,10 @@ export const account = pgTable(
   ]
 );
 
-export const verification = pgTable(
+export const verification = lunchmeet.table(
   "verification",
   {
-    id: text("id").primaryKey(),
+    id: uuid("id").primaryKey().defaultRandom(),
     identifier: text("identifier").notNull(),
     value: text("value").notNull(),
     expiresAt: tstz("expires_at").notNull(),

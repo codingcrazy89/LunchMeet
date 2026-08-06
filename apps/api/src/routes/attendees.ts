@@ -72,7 +72,7 @@ export const attendeeRoutes = new Hono<{ Variables: AppVariables }>()
 
     const updated = await db.transaction(async (tx) => {
       // Lock the lunch row so concurrent approvals cannot both see a free seat.
-      await tx.execute(sql`select 1 from lunches where id = ${context.lunch.id} for update`);
+      await tx.execute(sql`select 1 from lunchmeet.lunches where id = ${context.lunch.id} for update`);
 
       const [attendee] = await tx
         .select()

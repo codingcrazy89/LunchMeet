@@ -31,7 +31,7 @@ export function useUploadPhoto() {
     async mutationFn(localUri: string) {
       const contentType = contentTypeFor(localUri);
 
-      const presignResponse = await api.v1.photos["upload-url"].$post({
+      const presignResponse = await api.v2.photos["upload-url"].$post({
         json: { contentType },
       });
       const { upload } = await unwrap<{ upload: PresignedUpload }>(presignResponse);
@@ -50,7 +50,7 @@ export function useUploadPhoto() {
         throw new Error(`Upload failed (${put.status}).`);
       }
 
-      const confirmResponse = await api.v1.photos.confirm.$post({
+      const confirmResponse = await api.v2.photos.confirm.$post({
         json: { key: upload.key },
       });
       return unwrap<{ photoKeys: string[] }>(confirmResponse);
@@ -66,7 +66,7 @@ export function useDeletePhoto() {
 
   return useMutation({
     async mutationFn(key: string) {
-      const response = await api.v1.photos[":key{.+}"].$delete({ param: { key } });
+      const response = await api.v2.photos[":key{.+}"].$delete({ param: { key } });
       return unwrap<{ ok: boolean }>(response);
     },
     onSuccess() {
@@ -89,7 +89,7 @@ export function usePhotoUrls(keys: string[] | undefined) {
     staleTime: 45 * 60 * 1000,
     async queryFn() {
       if (!keys || keys.length === 0) return {};
-      const response = await api.v1.photos.urls.$post({ json: { keys } });
+      const response = await api.v2.photos.urls.$post({ json: { keys } });
       const data = await unwrap<{ urls: { key: string; url: string }[] }>(response);
       return Object.fromEntries(data.urls.map((entry) => [entry.key, entry.url]));
     },

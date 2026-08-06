@@ -1,9 +1,9 @@
 import { relations, sql } from "drizzle-orm";
-import { index, jsonb, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { index, jsonb, text, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.js";
-import { createdAt, tstz } from "./_shared.js";
+import { lunchmeet, createdAt, tstz } from "./_shared.js";
 
-export const notificationType = pgEnum("notification_type", [
+export const notificationType = lunchmeet.enum("notification_type", [
   "invite",
   "join_request",
   "cohost_added",
@@ -20,11 +20,11 @@ export const notificationType = pgEnum("notification_type", [
  * to error reporting. They are now written in the same transaction as the
  * action that causes them, so a failure to notify fails the action loudly.
  */
-export const notifications = pgTable(
+export const notifications = lunchmeet.table(
   "notifications",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     type: notificationType("type").notNull(),
@@ -44,11 +44,11 @@ export const notifications = pgTable(
 );
 
 /** Expo push tokens, one row per device per user. */
-export const pushTokens = pgTable(
+export const pushTokens = lunchmeet.table(
   "push_tokens",
   {
     token: text("token").primaryKey(),
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     platform: text("platform"),

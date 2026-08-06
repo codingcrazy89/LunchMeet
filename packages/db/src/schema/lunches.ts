@@ -4,31 +4,29 @@ import {
   doublePrecision,
   index,
   integer,
-  pgEnum,
-  pgTable,
   text,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth.js";
-import { createdAt, tstz, updatedAt } from "./_shared.js";
+import { lunchmeet, createdAt, tstz, updatedAt } from "./_shared.js";
 
-export const attendeeStatus = pgEnum("attendee_status", ["pending", "accepted", "denied"]);
-export const inviteStatus = pgEnum("invite_status", ["pending", "accepted", "declined"]);
+export const attendeeStatus = lunchmeet.enum("attendee_status", ["pending", "accepted", "denied"]);
+export const inviteStatus = lunchmeet.enum("invite_status", ["pending", "accepted", "declined"]);
 
 /**
  * The aggregate root. Nearly every other entity hangs off a lunch, and the
  * lifecycle (create, request, accept, chat, rate) drives the whole application.
  */
-export const lunches = pgTable(
+export const lunches = lunchmeet.table(
   "lunches",
   {
     id: uuid("id").primaryKey().defaultRandom(),
 
-    hostId: text("host_id")
+    hostId: uuid("host_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    coHostId: text("co_host_id").references(() => user.id, { onDelete: "set null" }),
+    coHostId: uuid("co_host_id").references(() => user.id, { onDelete: "set null" }),
 
     // Venue, as chosen from Google Places.
     placeId: text("place_id"),
@@ -78,14 +76,14 @@ export const lunches = pgTable(
 );
 
 /** Join requests and confirmed seats. One row per user per lunch. */
-export const lunchAttendees = pgTable(
+export const lunchAttendees = lunchmeet.table(
   "lunch_attendees",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     lunchId: uuid("lunch_id")
       .notNull()
       .references(() => lunches.id, { onDelete: "cascade" }),
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     status: attendeeStatus("status").notNull().default("pending"),
@@ -101,17 +99,17 @@ export const lunchAttendees = pgTable(
 );
 
 /** Direct invitations, which are the only way into a private lunch. */
-export const lunchInvites = pgTable(
+export const lunchInvites = lunchmeet.table(
   "lunch_invites",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     lunchId: uuid("lunch_id")
       .notNull()
       .references(() => lunches.id, { onDelete: "cascade" }),
-    inviterId: text("inviter_id")
+    inviterId: uuid("inviter_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    inviteeId: text("invitee_id")
+    inviteeId: uuid("invitee_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     status: inviteStatus("status").notNull().default("pending"),

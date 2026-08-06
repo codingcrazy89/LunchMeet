@@ -17,7 +17,7 @@ export function useMyProfile() {
   return useQuery({
     queryKey: queryKeys.profile.me(),
     async queryFn() {
-      const response = await api.v1.profiles.me.$get();
+      const response = await api.v2.profiles.me.$get();
       return unwrap<{ profile: Profile | null; email: string }>(response);
     },
   });
@@ -28,7 +28,7 @@ export function useProfile(userId: string | undefined) {
     queryKey: queryKeys.profile.byId(userId ?? ""),
     enabled: Boolean(userId),
     async queryFn() {
-      const response = await api.v1.profiles[":userId"].$get({ param: { userId: userId! } });
+      const response = await api.v2.profiles[":userId"].$get({ param: { userId: userId! } });
       const data = await unwrap<{ profile: Profile }>(response);
       return data.profile;
     },
@@ -39,7 +39,7 @@ export function useUpdateProfile() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(input: Partial<Omit<Profile, "userId">>) {
-      const response = await api.v1.profiles.me.$patch({ json: input });
+      const response = await api.v2.profiles.me.$patch({ json: input });
       return unwrap<{ profile: Profile }>(response);
     },
     onSuccess(data) {

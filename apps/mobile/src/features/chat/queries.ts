@@ -16,7 +16,7 @@ export function useChatAccess(lunchId: string | undefined) {
     queryKey: queryKeys.chat.access(lunchId ?? ""),
     enabled: Boolean(lunchId),
     async queryFn() {
-      const response = await api.v1.lunches[":lunchId"].access.$get({
+      const response = await api.v2.lunches[":lunchId"].access.$get({
         param: { lunchId: lunchId! },
       });
       return unwrap<{ canAccess: boolean; role: string }>(response);
@@ -29,7 +29,7 @@ export function useChatMessages(lunchId: string | undefined) {
     queryKey: queryKeys.chat.messages(lunchId ?? ""),
     enabled: Boolean(lunchId),
     async queryFn() {
-      const response = await api.v1.lunches[":lunchId"].messages.$get({
+      const response = await api.v2.lunches[":lunchId"].messages.$get({
         param: { lunchId: lunchId! },
         query: {},
       });
@@ -42,7 +42,7 @@ export function useSendMessage(lunchId: string) {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(body: string) {
-      const response = await api.v1.lunches[":lunchId"].messages.$post({
+      const response = await api.v2.lunches[":lunchId"].messages.$post({
         param: { lunchId },
         json: { body },
       });

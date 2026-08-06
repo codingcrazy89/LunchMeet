@@ -1,18 +1,19 @@
 {
-  "id": "14f72516-9e3f-46ec-94a2-ecd312cbc8ed",
+  "id": "f0f881ff-c4f3-416c-88cf-e0459d21ebc4",
   "prevId": "bfb3be33-1df3-4f2a-9aac-15969f9de2e1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.account": {
+    "lunchmeet.account": {
       "name": "account",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "account_id": {
           "name": "account_id",
@@ -28,7 +29,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -132,6 +133,7 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -148,15 +150,16 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.session": {
+    "lunchmeet.session": {
       "name": "session",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "token": {
           "name": "token",
@@ -184,7 +187,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -240,6 +243,7 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -256,15 +260,16 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.user": {
+    "lunchmeet.user": {
       "name": "user",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "name": {
           "name": "name",
@@ -330,15 +335,16 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.verification": {
+    "lunchmeet.verification": {
       "name": "verification",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
-          "notNull": true
+          "notNull": true,
+          "default": "gen_random_uuid()"
         },
         "identifier": {
           "name": "identifier",
@@ -397,13 +403,13 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.profiles": {
+    "lunchmeet.profiles": {
       "name": "profiles",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": true,
           "notNull": true
         },
@@ -530,6 +536,7 @@
           "name": "profiles_user_id_user_id_fk",
           "tableFrom": "profiles",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -546,9 +553,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.lunch_attendees": {
+    "lunchmeet.lunch_attendees": {
       "name": "lunch_attendees",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -565,14 +572,14 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "status": {
           "name": "status",
           "type": "attendee_status",
-          "typeSchema": "public",
+          "typeSchema": "lunchmeet",
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
@@ -656,6 +663,7 @@
           "name": "lunch_attendees_lunch_id_lunches_id_fk",
           "tableFrom": "lunch_attendees",
           "tableTo": "lunches",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "lunch_id"
           ],
@@ -669,6 +677,7 @@
           "name": "lunch_attendees_user_id_user_id_fk",
           "tableFrom": "lunch_attendees",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -685,9 +694,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.lunch_invites": {
+    "lunchmeet.lunch_invites": {
       "name": "lunch_invites",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -704,20 +713,20 @@
         },
         "inviter_id": {
           "name": "inviter_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "invitee_id": {
           "name": "invitee_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "status": {
           "name": "status",
           "type": "invite_status",
-          "typeSchema": "public",
+          "typeSchema": "lunchmeet",
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
@@ -780,6 +789,7 @@
           "name": "lunch_invites_lunch_id_lunches_id_fk",
           "tableFrom": "lunch_invites",
           "tableTo": "lunches",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "lunch_id"
           ],
@@ -793,6 +803,7 @@
           "name": "lunch_invites_inviter_id_user_id_fk",
           "tableFrom": "lunch_invites",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "inviter_id"
           ],
@@ -806,6 +817,7 @@
           "name": "lunch_invites_invitee_id_user_id_fk",
           "tableFrom": "lunch_invites",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "invitee_id"
           ],
@@ -822,9 +834,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.lunches": {
+    "lunchmeet.lunches": {
       "name": "lunches",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -835,13 +847,13 @@
         },
         "host_id": {
           "name": "host_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "co_host_id": {
           "name": "co_host_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1005,7 +1017,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"lunches\".\"rating_prompt_sent_at\" is null",
+          "where": "\"lunchmeet\".\"lunches\".\"rating_prompt_sent_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1031,6 +1043,7 @@
           "name": "lunches_host_id_user_id_fk",
           "tableFrom": "lunches",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "host_id"
           ],
@@ -1044,6 +1057,7 @@
           "name": "lunches_co_host_id_user_id_fk",
           "tableFrom": "lunches",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "co_host_id"
           ],
@@ -1060,9 +1074,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.chat_rooms": {
+    "lunchmeet.chat_rooms": {
       "name": "chat_rooms",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -1107,6 +1121,7 @@
           "name": "chat_rooms_lunch_id_lunches_id_fk",
           "tableFrom": "chat_rooms",
           "tableTo": "lunches",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "lunch_id"
           ],
@@ -1123,9 +1138,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.messages": {
+    "lunchmeet.messages": {
       "name": "messages",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -1142,7 +1157,7 @@
         },
         "sender_id": {
           "name": "sender_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1195,6 +1210,7 @@
           "name": "messages_chat_room_id_chat_rooms_id_fk",
           "tableFrom": "messages",
           "tableTo": "chat_rooms",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "chat_room_id"
           ],
@@ -1208,6 +1224,7 @@
           "name": "messages_sender_id_user_id_fk",
           "tableFrom": "messages",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "sender_id"
           ],
@@ -1224,9 +1241,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.user_contacts": {
+    "lunchmeet.user_contacts": {
       "name": "user_contacts",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -1237,13 +1254,13 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "contact_id": {
           "name": "contact_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1283,6 +1300,7 @@
           "name": "user_contacts_user_id_user_id_fk",
           "tableFrom": "user_contacts",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -1296,6 +1314,7 @@
           "name": "user_contacts_contact_id_user_id_fk",
           "tableFrom": "user_contacts",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "contact_id"
           ],
@@ -1312,14 +1331,14 @@
       "checkConstraints": {
         "user_contacts_no_self": {
           "name": "user_contacts_no_self",
-          "value": "\"user_contacts\".\"user_id\" <> \"user_contacts\".\"contact_id\""
+          "value": "\"lunchmeet\".\"user_contacts\".\"user_id\" <> \"lunchmeet\".\"user_contacts\".\"contact_id\""
         }
       },
       "isRLSEnabled": false
     },
-    "public.user_ratings": {
+    "lunchmeet.user_ratings": {
       "name": "user_ratings",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -1336,13 +1355,13 @@
         },
         "rater_id": {
           "name": "rater_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "rated_id": {
           "name": "rated_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1422,6 +1441,7 @@
           "name": "user_ratings_lunch_id_lunches_id_fk",
           "tableFrom": "user_ratings",
           "tableTo": "lunches",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "lunch_id"
           ],
@@ -1435,6 +1455,7 @@
           "name": "user_ratings_rater_id_user_id_fk",
           "tableFrom": "user_ratings",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "rater_id"
           ],
@@ -1448,6 +1469,7 @@
           "name": "user_ratings_rated_id_user_id_fk",
           "tableFrom": "user_ratings",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "rated_id"
           ],
@@ -1464,18 +1486,18 @@
       "checkConstraints": {
         "user_ratings_rating_range": {
           "name": "user_ratings_rating_range",
-          "value": "\"user_ratings\".\"rating\" between 1 and 5"
+          "value": "\"lunchmeet\".\"user_ratings\".\"rating\" between 1 and 5"
         },
         "user_ratings_no_self": {
           "name": "user_ratings_no_self",
-          "value": "\"user_ratings\".\"rater_id\" <> \"user_ratings\".\"rated_id\""
+          "value": "\"lunchmeet\".\"user_ratings\".\"rater_id\" <> \"lunchmeet\".\"user_ratings\".\"rated_id\""
         }
       },
       "isRLSEnabled": false
     },
-    "public.user_reports": {
+    "lunchmeet.user_reports": {
       "name": "user_reports",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -1486,13 +1508,13 @@
         },
         "reporter_id": {
           "name": "reporter_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "reported_id": {
           "name": "reported_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1532,6 +1554,7 @@
           "name": "user_reports_reporter_id_user_id_fk",
           "tableFrom": "user_reports",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "reporter_id"
           ],
@@ -1545,6 +1568,7 @@
           "name": "user_reports_reported_id_user_id_fk",
           "tableFrom": "user_reports",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "reported_id"
           ],
@@ -1561,14 +1585,14 @@
       "checkConstraints": {
         "user_reports_no_self": {
           "name": "user_reports_no_self",
-          "value": "\"user_reports\".\"reporter_id\" <> \"user_reports\".\"reported_id\""
+          "value": "\"lunchmeet\".\"user_reports\".\"reporter_id\" <> \"lunchmeet\".\"user_reports\".\"reported_id\""
         }
       },
       "isRLSEnabled": false
     },
-    "public.notifications": {
+    "lunchmeet.notifications": {
       "name": "notifications",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "id": {
           "name": "id",
@@ -1579,14 +1603,14 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
         "type": {
           "name": "type",
           "type": "notification_type",
-          "typeSchema": "public",
+          "typeSchema": "lunchmeet",
           "primaryKey": false,
           "notNull": true
         },
@@ -1656,7 +1680,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"notifications\".\"read_at\" is null",
+          "where": "\"lunchmeet\".\"notifications\".\"read_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1667,6 +1691,7 @@
           "name": "notifications_user_id_user_id_fk",
           "tableFrom": "notifications",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -1683,9 +1708,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.push_tokens": {
+    "lunchmeet.push_tokens": {
       "name": "push_tokens",
-      "schema": "",
+      "schema": "lunchmeet",
       "columns": {
         "token": {
           "name": "token",
@@ -1695,7 +1720,7 @@
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1735,6 +1760,7 @@
           "name": "push_tokens_user_id_user_id_fk",
           "tableFrom": "push_tokens",
           "tableTo": "user",
+          "schemaTo": "lunchmeet",
           "columnsFrom": [
             "user_id"
           ],
@@ -1753,27 +1779,27 @@
     }
   },
   "enums": {
-    "public.attendee_status": {
+    "lunchmeet.attendee_status": {
       "name": "attendee_status",
-      "schema": "public",
+      "schema": "lunchmeet",
       "values": [
         "pending",
         "accepted",
         "denied"
       ]
     },
-    "public.invite_status": {
+    "lunchmeet.invite_status": {
       "name": "invite_status",
-      "schema": "public",
+      "schema": "lunchmeet",
       "values": [
         "pending",
         "accepted",
         "declined"
       ]
     },
-    "public.notification_type": {
+    "lunchmeet.notification_type": {
       "name": "notification_type",
-      "schema": "public",
+      "schema": "lunchmeet",
       "values": [
         "invite",
         "join_request",
@@ -1785,7 +1811,9 @@
       ]
     }
   },
-  "schemas": {},
+  "schemas": {
+    "lunchmeet": "lunchmeet"
+  },
   "sequences": {},
   "roles": {},
   "policies": {},

@@ -1,7 +1,7 @@
 import { relations, sql } from "drizzle-orm";
-import { boolean, index, integer, pgTable, text } from "drizzle-orm/pg-core";
+import { boolean, index, integer, text, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.js";
-import { createdAt, tstz, updatedAt } from "./_shared.js";
+import { lunchmeet, createdAt, tstz, updatedAt } from "./_shared.js";
 
 /**
  * The public-facing half of a user.
@@ -13,10 +13,10 @@ import { createdAt, tstz, updatedAt } from "./_shared.js";
  * `photos` column that was selected on nearly every screen, inflating every
  * profile query by megabytes. Here photos are storage object keys.
  */
-export const profiles = pgTable(
+export const profiles = lunchmeet.table(
   "profiles",
   {
-    userId: text("user_id")
+    userId: uuid("user_id")
       .primaryKey()
       .references(() => user.id, { onDelete: "cascade" }),
 

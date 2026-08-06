@@ -23,7 +23,7 @@ export function useNotifications() {
   return useQuery({
     queryKey: queryKeys.notifications.all(),
     async queryFn() {
-      const response = await api.v1.notifications.$get();
+      const response = await api.v2.notifications.$get();
       return unwrap<{ notifications: Notification[]; unreadCount: number }>(response);
     },
     // Realtime delivery replaces polling in phase 4; until then a slow poll
@@ -36,7 +36,7 @@ export function useMarkAllRead() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn() {
-      const response = await api.v1.notifications.read.$post();
+      const response = await api.v2.notifications.read.$post();
       return unwrap<{ ok: boolean }>(response);
     },
     onSuccess() {
@@ -49,7 +49,7 @@ export function useMarkRead() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(id: string) {
-      const response = await api.v1.notifications[":id"].read.$post({ param: { id } });
+      const response = await api.v2.notifications[":id"].read.$post({ param: { id } });
       return unwrap<{ ok: boolean }>(response);
     },
     onSuccess() {

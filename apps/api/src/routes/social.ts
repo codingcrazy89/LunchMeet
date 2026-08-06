@@ -171,14 +171,14 @@ export const socialRoutes = new Hono<{ Variables: AppVariables }>()
   .get("/public/stats", async (c) => {
     const [row] = await db
       .select({
-        profiles: sql<number>`(select count(*) from profiles)::int`,
-        lunches: sql<number>`(select count(*) from lunches)::int`,
+        profiles: sql<number>`(select count(*) from lunchmeet.profiles)::int`,
+        lunches: sql<number>`(select count(*) from lunchmeet.lunches)::int`,
       })
       .from(sql`(select 1) as one`);
 
     return c.json({
       profiles: row?.profiles ?? 0,
       lunches: row?.lunches ?? 0,
-      schemaVersion: 1,
+      apiVersion: "v2",
     });
   });

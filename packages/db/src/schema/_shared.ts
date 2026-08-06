@@ -1,4 +1,19 @@
-import { customType, timestamp } from "drizzle-orm/pg-core";
+import { customType, pgSchema, timestamp } from "drizzle-orm/pg-core";
+
+/**
+ * All application tables live in a dedicated schema rather than `public`.
+ *
+ * `public` is where extensions land and where anything with CREATE rights can
+ * drop objects, so keeping application state separate makes ownership explicit
+ * and lets a production role be granted usage on exactly one schema.
+ *
+ * Extensions stay in `public`; the connection sets a search_path of
+ * `lunchmeet, public` so functions like ll_to_earth and gen_random_uuid
+ * resolve without qualification.
+ */
+export const lunchmeet = pgSchema("lunchmeet");
+
+export const SCHEMA_NAME = "lunchmeet";
 
 /**
  * Case-insensitive text, backed by the `citext` extension.

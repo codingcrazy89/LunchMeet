@@ -56,7 +56,7 @@ const lunchColumns = {
   /** Confirmed seats taken, computed rather than stored. v1 kept a mutable
    *  counter that drifted whenever an update failed midway. */
   acceptedCount: sql<number>`(
-    select count(*) from lunch_attendees a
+    select count(*) from lunchmeet.lunch_attendees a
     where a.lunch_id = ${lunches.id} and a.status = 'accepted'
   )::int`,
 };
@@ -170,8 +170,8 @@ export const lunchRoutes = new Hono<{ Variables: AppVariables }>()
       const [coHost] = await db
         .select({ userId: profiles.userId })
         .from(profiles)
-        .innerJoin(sql`"user"`, sql`"user".id = ${profiles.userId}`)
-        .where(sql`"user".email = ${input.coHostEmail}`)
+        .innerJoin(sql`lunchmeet."user"`, sql`lunchmeet."user".id = ${profiles.userId}`)
+        .where(sql`lunchmeet."user".email = ${input.coHostEmail}`)
         .limit(1);
 
       if (!coHost) {

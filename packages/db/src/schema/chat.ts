@@ -1,8 +1,8 @@
 import { relations } from "drizzle-orm";
-import { index, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { index, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.js";
 import { lunches } from "./lunches.js";
-import { createdAt, updatedAt } from "./_shared.js";
+import { lunchmeet, createdAt, updatedAt } from "./_shared.js";
 
 /**
  * One chat room per lunch, created on demand.
@@ -12,7 +12,7 @@ import { createdAt, updatedAt } from "./_shared.js";
  * Creation now goes through the API's policy layer, which verifies the caller
  * is a participant first.
  */
-export const chatRooms = pgTable(
+export const chatRooms = lunchmeet.table(
   "chat_rooms",
   {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -24,7 +24,7 @@ export const chatRooms = pgTable(
   (table) => [uniqueIndex("chat_rooms_lunch_id_key").on(table.lunchId)]
 );
 
-export const messages = pgTable(
+export const messages = lunchmeet.table(
   "messages",
   {
     id: uuid("id").primaryKey().defaultRandom(),
@@ -32,7 +32,7 @@ export const messages = pgTable(
     chatRoomId: uuid("chat_room_id")
       .notNull()
       .references(() => chatRooms.id, { onDelete: "cascade" }),
-    senderId: text("sender_id")
+    senderId: uuid("sender_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     body: text("body").notNull(),

@@ -48,7 +48,7 @@ export function useLunches(scope: LunchScope = "upcoming") {
   return useQuery({
     queryKey: queryKeys.lunches.list(scope),
     async queryFn() {
-      const response = await api.v1.lunches.$get({ query: { scope } });
+      const response = await api.v2.lunches.$get({ query: { scope } });
       const data = await unwrap<{ lunches: Lunch[] }>(response);
       return data.lunches;
     },
@@ -64,7 +64,7 @@ export function useNearbyLunches(
     enabled: coords !== null,
     async queryFn() {
       if (!coords) return [];
-      const response = await api.v1.lunches.nearby.$get({
+      const response = await api.v2.lunches.nearby.$get({
         query: {
           latitude: String(coords.latitude),
           longitude: String(coords.longitude),
@@ -82,7 +82,7 @@ export function useLunch(lunchId: string | undefined) {
     queryKey: queryKeys.lunches.detail(lunchId ?? ""),
     enabled: Boolean(lunchId),
     async queryFn() {
-      const response = await api.v1.lunches[":id"].$get({ param: { id: lunchId! } });
+      const response = await api.v2.lunches[":id"].$get({ param: { id: lunchId! } });
       return unwrap<LunchDetail>(response);
     },
   });
@@ -107,7 +107,7 @@ export function useCreateLunch() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(input: CreateLunchInput) {
-      const response = await api.v1.lunches.$post({
+      const response = await api.v2.lunches.$post({
         json: { ...input, dateTime: input.dateTime.toISOString() },
       });
       return unwrap<{ lunch: Lunch }>(response);
@@ -122,7 +122,7 @@ export function useJoinLunch() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(lunchId: string) {
-      const response = await api.v1.lunches[":lunchId"].attendees.$post({
+      const response = await api.v2.lunches[":lunchId"].attendees.$post({
         param: { lunchId },
       });
       return unwrap<{ attendee: LunchAttendee }>(response);
@@ -138,7 +138,7 @@ export function useAcceptRequest() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn({ lunchId, attendeeId }: { lunchId: string; attendeeId: string }) {
-      const response = await api.v1.lunches[":lunchId"].attendees[":attendeeId"].accept.$post({
+      const response = await api.v2.lunches[":lunchId"].attendees[":attendeeId"].accept.$post({
         param: { lunchId, attendeeId },
       });
       return unwrap<{ attendee: LunchAttendee }>(response);
@@ -153,7 +153,7 @@ export function useDenyRequest() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn({ lunchId, attendeeId }: { lunchId: string; attendeeId: string }) {
-      const response = await api.v1.lunches[":lunchId"].attendees[":attendeeId"].deny.$post({
+      const response = await api.v2.lunches[":lunchId"].attendees[":attendeeId"].deny.$post({
         param: { lunchId, attendeeId },
       });
       return unwrap<{ ok: boolean }>(response);
@@ -168,7 +168,7 @@ export function useLeaveLunch() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(lunchId: string) {
-      const response = await api.v1.lunches[":lunchId"].attendees.me.$delete({
+      const response = await api.v2.lunches[":lunchId"].attendees.me.$delete({
         param: { lunchId },
       });
       return unwrap<{ ok: boolean }>(response);
@@ -184,7 +184,7 @@ export function useCloseLunch() {
   const client = useQueryClient();
   return useMutation({
     async mutationFn(lunchId: string) {
-      const response = await api.v1.lunches[":id"].$delete({ param: { id: lunchId } });
+      const response = await api.v2.lunches[":id"].$delete({ param: { id: lunchId } });
       return unwrap<{ ok: boolean }>(response);
     },
     onSuccess() {

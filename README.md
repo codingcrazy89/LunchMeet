@@ -9,7 +9,7 @@ Shipping on iOS as **LunchMeet Social**.
 [![Ratings](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fitunes.apple.com%2Flookup%3Fid%3D6760374356&query=%24.results%5B0%5D.userRatingCount&label=ratings&color=blue)](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
 [![Min iOS](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fitunes.apple.com%2Flookup%3Fid%3D6760374356&query=%24.results%5B0%5D.minimumOsVersion&prefix=iOS%20&label=requires&color=lightgrey)](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
 
-These read live from Apple's public iTunes Lookup API, so they update without a CI job or any stored secret. Download counts are deliberately absent — Apple exposes them in no public API, only through authenticated App Store Connect reports. A profiles-created badge lands once the v2 API ships `GET /v1/public/stats`.
+These read live from Apple's public iTunes Lookup API, so they update without a CI job or any stored secret. Download counts are deliberately absent — Apple exposes them in no public API, only through authenticated App Store Connect reports. A profiles-created badge lands once the v2 API ships `GET /v2/public/stats`.
 
 ## Features
 

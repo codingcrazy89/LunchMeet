@@ -38,7 +38,10 @@ history, ratings, contacts, and reports.
 
 1. Production Postgres provisioned, with `citext`, `pg_trgm`, `cube`,
    `earthdistance` and `pgcrypto` pre-created by an administrator. Migrations
-   issue `CREATE EXTENSION`, which the application role cannot do.
+   issue `CREATE EXTENSION`, which the application role cannot do. Application
+   tables go in the `lunchmeet` schema, so the role needs `USAGE, CREATE` there
+   and only `USAGE` on `public`. See
+   [PRODUCTION_SECRETS.md](PRODUCTION_SECRETS.md).
 2. Every credential in [PRODUCTION_SECRETS.md](PRODUCTION_SECRETS.md) in place,
    verified with `npm run doctor`.
 3. A GCS bucket, and a service account attached to the workload rather than a

@@ -34,9 +34,12 @@ export interface Fixtures {
 export async function resetDatabase(): Promise<void> {
   await sql`
     truncate table
-      "user", profiles, lunches, lunch_attendees, lunch_invites,
-      chat_rooms, messages, user_ratings, user_contacts, user_reports,
-      notifications, push_tokens, session, account, verification
+      lunchmeet."user", lunchmeet.profiles, lunchmeet.lunches,
+      lunchmeet.lunch_attendees, lunchmeet.lunch_invites,
+      lunchmeet.chat_rooms, lunchmeet.messages, lunchmeet.user_ratings,
+      lunchmeet.user_contacts, lunchmeet.user_reports,
+      lunchmeet.notifications, lunchmeet.push_tokens,
+      lunchmeet.session, lunchmeet.account, lunchmeet.verification
     restart identity cascade
   `;
 }
@@ -44,14 +47,17 @@ export async function resetDatabase(): Promise<void> {
 export async function seedFixtures(): Promise<Fixtures> {
   await resetDatabase();
 
+  // Ids are generated, matching production, where Better Auth issues a UUID.
   const people = [
-    { id: "u_host", name: "Host", email: "host@test.local", gender: "female", lookingFor: ["mentoring"] },
-    { id: "u_cohost", name: "CoHost", email: "cohost@test.local", gender: "male", lookingFor: [] },
-    { id: "u_invitee", name: "Invitee", email: "invitee@test.local", gender: "male", lookingFor: [] },
-    { id: "u_stranger", name: "Stranger", email: "stranger@test.local", gender: "male", lookingFor: ["networking"] },
+    { key: "host", name: "Host", email: "host@test.local", gender: "female", lookingFor: ["mentoring"] },
+    { key: "coHost", name: "CoHost", email: "cohost@test.local", gender: "male", lookingFor: [] },
+    { key: "invitee", name: "Invitee", email: "invitee@test.local", gender: "male", lookingFor: [] },
+    { key: "stranger", name: "Stranger", email: "stranger@test.local", gender: "male", lookingFor: ["networking"] },
     // Female and interested in mentoring: matches the restricted lunch.
-    { id: "u_matching", name: "Matching", email: "matching@test.local", gender: "female", lookingFor: ["mentoring"] },
-  ];
+    { key: "matching", name: "Matching", email: "matching@test.local", gender: "female", lookingFor: ["mentoring"] },
+  ].map((person) => ({ ...person, id: randomUUID() }));
+
+  const userId = Object.fromEntries(people.map((p) => [p.key, p.id])) as Record<string, string>;
 
   await db.insert(user).values(
     people.map((p) => ({ id: p.id, name: p.name, email: p.email, emailVerified: true }))
@@ -77,8 +83,8 @@ export async function seedFixtures(): Promise<Fixtures> {
   await db.insert(lunches).values([
     {
       id: ids.publicOpen,
-      hostId: "u_host",
-      coHostId: "u_cohost",
+      hostId: userId.host!,
+      coHostId: userId.coHost!,
       restaurantName: "Public Open",
       dateTime: inHours(24),
       seats: 2,
@@ -88,7 +94,7 @@ export async function seedFixtures(): Promise<Fixtures> {
     },
     {
       id: ids.privateInviteOnly,
-      hostId: "u_host",
+      hostId: userId.host!,
       restaurantName: "Private",
       dateTime: inHours(24),
       seats: 4,
@@ -96,7 +102,7 @@ export async function seedFixtures(): Promise<Fixtures> {
     },
     {
       id: ids.genderRestricted,
-      hostId: "u_host",
+      hostId: userId.host!,
       restaurantName: "Restricted",
       dateTime: inHours(24),
       seats: 4,
@@ -106,7 +112,7 @@ export async function seedFixtures(): Promise<Fixtures> {
     },
     {
       id: ids.past,
-      hostId: "u_host",
+      hostId: userId.host!,
       restaurantName: "Past",
       dateTime: inHours(-5),
       seats: 4,
@@ -116,21 +122,21 @@ export async function seedFixtures(): Promise<Fixtures> {
 
   await db.insert(lunchInvites).values({
     lunchId: ids.privateInviteOnly,
-    inviterId: "u_host",
-    inviteeId: "u_invitee",
+    inviterId: userId.host!,
+    inviteeId: userId.invitee!,
   });
 
   await db.insert(lunchAttendees).values([
-    { lunchId: ids.past, userId: "u_stranger", status: "accepted" },
+    { lunchId: ids.past, userId: userId.stranger!, status: "accepted" },
   ]);
 
   return {
     users: {
-      host: "u_host",
-      coHost: "u_cohost",
-      invitee: "u_invitee",
-      stranger: "u_stranger",
-      matching: "u_matching",
+      host: userId.host!,
+      coHost: userId.coHost!,
+      invitee: userId.invitee!,
+      stranger: userId.stranger!,
+      matching: userId.matching!,
     },
     lunches: ids,
   };

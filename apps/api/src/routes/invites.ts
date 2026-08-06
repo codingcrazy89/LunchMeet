@@ -12,10 +12,10 @@ import { requireOrganiser, resolveLunchContext } from "../policy/lunch.js";
 const inviteSchema = z.object({ email: z.email() });
 
 /**
- * Lunch-scoped invite routes, mounted under /v1/lunches.
+ * Lunch-scoped invite routes, mounted under /v2/lunches.
  *
  * Kept separate from the caller-scoped routes below so the mounted paths are
- * unambiguous: mounting both at the root produced /v1/:lunchId/invites.
+ * unambiguous: mounting both at the root produced /v2/:lunchId/invites.
  */
 export const lunchInviteRoutes = new Hono<{ Variables: AppVariables }>().post(
   "/:lunchId/invites",
@@ -31,8 +31,8 @@ export const lunchInviteRoutes = new Hono<{ Variables: AppVariables }>().post(
     const [invitee] = await db
       .select({ userId: profiles.userId })
       .from(profiles)
-      .innerJoin(sql`"user"`, sql`"user".id = ${profiles.userId}`)
-      .where(sql`"user".email = ${email}`)
+      .innerJoin(sql`lunchmeet."user"`, sql`lunchmeet."user".id = ${profiles.userId}`)
+      .where(sql`lunchmeet."user".email = ${email}`)
       .limit(1);
 
     if (!invitee) {

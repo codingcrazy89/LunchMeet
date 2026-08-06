@@ -1,8 +1,8 @@
 import { relations, sql } from "drizzle-orm";
-import { check, index, integer, pgTable, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { check, index, integer, text, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.js";
 import { lunches } from "./lunches.js";
-import { createdAt, updatedAt } from "./_shared.js";
+import { lunchmeet, createdAt, updatedAt } from "./_shared.js";
 
 /**
  * Peer ratings after a lunch.
@@ -11,17 +11,17 @@ import { createdAt, updatedAt } from "./_shared.js";
  * received. That was v1's behaviour too and it is worth preserving, since
  * visible peer ratings turn a safety mechanism into a popularity contest.
  */
-export const userRatings = pgTable(
+export const userRatings = lunchmeet.table(
   "user_ratings",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     lunchId: uuid("lunch_id")
       .notNull()
       .references(() => lunches.id, { onDelete: "cascade" }),
-    raterId: text("rater_id")
+    raterId: uuid("rater_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    ratedId: text("rated_id")
+    ratedId: uuid("rated_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     rating: integer("rating").notNull(),
@@ -42,14 +42,14 @@ export const userRatings = pgTable(
 );
 
 /** A directed "I know this person" edge, used to offer private invites. */
-export const userContacts = pgTable(
+export const userContacts = lunchmeet.table(
   "user_contacts",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    userId: text("user_id")
+    userId: uuid("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    contactId: text("contact_id")
+    contactId: uuid("contact_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     createdAt: createdAt(),
@@ -61,14 +61,14 @@ export const userContacts = pgTable(
 );
 
 /** Abuse reports. Readable only by an administrator, never through the API. */
-export const userReports = pgTable(
+export const userReports = lunchmeet.table(
   "user_reports",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    reporterId: text("reporter_id")
+    reporterId: uuid("reporter_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    reportedId: text("reported_id")
+    reportedId: uuid("reported_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     comment: text("comment").notNull(),

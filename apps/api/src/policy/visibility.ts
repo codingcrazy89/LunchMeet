@@ -25,23 +25,23 @@ export function visibleToViewer(viewerId: string): SQL {
     ${lunches.hostId} = ${viewerId}
     or ${lunches.coHostId} = ${viewerId}
     or exists (
-      select 1 from lunch_attendees a
+      select 1 from lunchmeet.lunch_attendees a
       where a.lunch_id = ${lunches.id} and a.user_id = ${viewerId}
     )
     or exists (
-      select 1 from lunch_invites i
+      select 1 from lunchmeet.lunch_invites i
       where i.lunch_id = ${lunches.id} and i.invitee_id = ${viewerId}
     )
     or (
       ${lunches.isPublic}
       and (
         ${lunches.visibilityGender} is null
-        or coalesce((select p.gender from profiles p where p.user_id = ${viewerId}), '')
+        or coalesce((select p.gender from lunchmeet.profiles p where p.user_id = ${viewerId}), '')
              = any(${lunches.visibilityGender})
       )
       and (
         ${lunches.visibilityLookingFor} is null
-        or coalesce((select p.looking_for from profiles p where p.user_id = ${viewerId}), '{}')
+        or coalesce((select p.looking_for from lunchmeet.profiles p where p.user_id = ${viewerId}), '{}')
              && ${lunches.visibilityLookingFor}
       )
     )
