@@ -11,6 +11,7 @@ import { attendeeRoutes } from "./routes/attendees.js";
 import { chatRoutes } from "./routes/chat.js";
 import { inviteRoutes, lunchInviteRoutes } from "./routes/invites.js";
 import { lunchRoutes } from "./routes/lunches.js";
+import { photoRoutes } from "./routes/photos.js";
 import { profileRoutes } from "./routes/profiles.js";
 import { ratingRoutes } from "./routes/ratings.js";
 import { socialRoutes } from "./routes/social.js";
@@ -44,6 +45,7 @@ export function createApp() {
   const v1 = new Hono<{ Variables: AppVariables }>()
     .use("*", withSession)
     .route("/profiles", profileRoutes)
+    .route("/photos", photoRoutes)
     .route("/lunches", lunchRoutes)
     .route("/lunches", attendeeRoutes)
     .route("/lunches", chatRoutes)
