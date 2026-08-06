@@ -75,6 +75,7 @@ Profile photos, replacing v1's base64-in-Postgres approach. Uses the native `@go
 
 - `GCP_PROJECT_ID` — public.
 - `GCS_BUCKET` — public. Bucket name.
+- `STORAGE_EMULATOR_HOST` — public, **development only**. Points at `fake-gcs-server`. Production safety checks fail the boot if this is set while `NODE_ENV=production`.
 - `GCP_SERVICE_ACCOUNT_JSON` — **secret**. Only needed where a service account cannot be attached to the workload.
   - Obtain: Google Cloud Console → IAM & Admin → Service Accounts → Keys.
   - Grant: `roles/storage.objectAdmin`, scoped to this bucket rather than project-wide.
@@ -91,11 +92,17 @@ Local development uses `fake-gcs-server` and requires no real credentials.
 
 Magic-link sign-in is unusable if outbound email fails, so this is launch-blocking.
 
-- `RESEND_API_KEY` — **secret**. (Or the equivalent for Postmark or SES.)
+The API speaks plain SMTP, so any provider works — Resend, Postmark, and SES all
+expose SMTP endpoints. Local development points these at Mailpit.
+
+- `SMTP_HOST` — public. Provider SMTP hostname. `localhost` in development.
+- `SMTP_PORT` — public. Usually 587 in production; `1025` for Mailpit.
+- `SMTP_USER` — public-ish. Provider username or API key ID.
+- `SMTP_PASSWORD` — **secret**. Provider password or API key.
 - `EMAIL_FROM` — public. Must be an address on a domain you have verified.
   - Obtain: your email provider dashboard.
   - Store: API host environment.
-  - Notes: SPF, DKIM, and DMARC records must be configured, or magic links land in spam. v1's `MAGIC_LINK_OUTLOOK.md` documents that this bit them already.
+  - Notes: SPF, DKIM, and DMARC records must be configured, or magic links land in spam. v1's `archive/v1-docs/MAGIC_LINK_OUTLOOK.md` documents that this bit them already.
 
 ## Push notifications
 

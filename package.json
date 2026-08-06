@@ -21,11 +21,14 @@
     "db:seed": "npm run seed --workspace @lunchmeet/db",
     "db:studio": "npm run studio --workspace @lunchmeet/db",
     "doctor": "npm run doctor --workspace @lunchmeet/config",
-    "lint": "npm run lint --workspaces --if-present",
+    "lint": "eslint . && npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
-    "typescript": "~5.9.2"
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.66.0"
   }
 }
