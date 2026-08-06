@@ -196,9 +196,9 @@ async function main(): Promise<void> {
       },
     ]);
 
-    const [{ count }] = await sql<{ count: string }[]>`select count(*)::text from profiles`;
+    const rows = await sql<{ count: string }[]>`select count(*)::text from profiles`;
     console.log("");
-    console.log(`Seed complete. ${count} profiles, 4 lunches.`);
+    console.log(`Seed complete. ${rows[0]?.count ?? "0"} profiles, 4 lunches.`);
     console.log("  public lunch  :", publicLunchId);
     console.log("  private lunch :", privateLunchId);
     console.log("  filtered lunch:", filteredLunchId);
