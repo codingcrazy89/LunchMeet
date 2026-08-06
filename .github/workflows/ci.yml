@@ -1,0 +1,100 @@
+# Continuous integration for the application itself.
+#
+# v1 had none: the only workflow published the docs/ site, so nothing verified
+# that the app built, typechecked, or behaved before a release.
+name: CI
+
+on:
+  push:
+    branches: [main, v2]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        # The official image bundles contrib, which is where citext, pg_trgm,
+        # cube and earthdistance come from. The first migration creates them.
+        image: postgres:16
+        env:
+          POSTGRES_USER: lunchmeet_dev
+          POSTGRES_PASSWORD: lunchmeet_ci
+          POSTGRES_DB: lunchmeet_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lunchmeet_dev"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+      # Stands in for Cloud Storage, so no GCP account is needed in CI.
+      gcs:
+        image: fsouza/fake-gcs-server:latest
+        ports:
+          - 4443:4443
+
+    env:
+      DATABASE_URL: postgresql://lunchmeet_dev:lunchmeet_ci@localhost:5432/lunchmeet_test
+      BETTER_AUTH_SECRET: ci-secret-long-enough-to-satisfy-validation-rules
+      STORAGE_EMULATOR_HOST: http://localhost:4443
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npx eslint .
+
+      - name: Typecheck
+        run: npm run typecheck --workspaces --if-present
+
+      - name: Apply migrations
+        run: npm run db:migrate
+
+      # Fails if a variable was added to the catalogue without documenting it,
+      # so the secrets manifest cannot rot the way v1's setup docs did.
+      - name: Check secrets manifest is current
+        run: npm run check-secrets-doc --workspace @lunchmeet/config
+
+      - name: Check generated files are current
+        run: |
+          npm run generate --workspace @lunchmeet/config
+          if ! git diff --quiet -- .env.example ops/CATALOG.md; then
+            echo "::error::.env.example or ops/CATALOG.md is stale. Run: npm run generate --workspace @lunchmeet/config"
+            git diff -- .env.example ops/CATALOG.md
+            exit 1
+          fi
+
+      - name: Test
+        run: npm run test --workspaces --if-present
+
+  expo-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Catches the class of mistake where npm resolves an Expo package to a
+      # major that the installed SDK does not support.
+      - name: Check Expo dependency versions
+        working-directory: apps/mobile
+        run: npx expo install --check

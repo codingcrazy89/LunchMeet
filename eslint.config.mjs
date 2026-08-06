@@ -61,7 +61,11 @@ export default tseslint.config(
   {
     // The config package is the one place allowed to touch process.env: it is
     // what turns the raw environment into validated, typed configuration.
-    files: ["packages/config/src/**/*.ts"],
+    //
+    // Test setup is the other: its entire job is to point the process at the
+    // test database before any module reads configuration. Without it, tests
+    // would truncate the development database.
+    files: ["packages/config/src/**/*.ts", "apps/api/src/test/setup.ts"],
     rules: {
       "no-restricted-properties": "off",
     },
