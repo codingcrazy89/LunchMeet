@@ -3,7 +3,7 @@ import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { REPORT_MIN_WORDS } from "@lunchmeet/shared";
-import { notifications, profiles, userContacts, userReports } from "@lunchmeet/db";
+import { notifications, profiles, pushTokens, userContacts, userReports } from "@lunchmeet/db";
 import { db } from "../db.js";
 import { badRequest, notFound } from "../lib/errors.js";
 import { currentUser, requireAuth, type AppVariables } from "../middleware/session.js";
@@ -14,6 +14,11 @@ const reportSchema = z.object({
 });
 
 const contactSchema = z.object({ contactId: z.string().min(1) });
+
+const pushTokenSchema = z.object({
+  token: z.string().min(1).max(500),
+  platform: z.enum(["ios", "android", "web"]).optional(),
+});
 
 const countWords = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
 
@@ -123,6 +128,37 @@ export const socialRoutes = new Hono<{ Variables: AppVariables }>()
       .returning({ id: notifications.id });
 
     if (!updated) throw notFound("Notification not found.");
+    return c.json({ ok: true });
+  })
+
+  /**
+   * Register a device for push notifications.
+   *
+   * Tokens are bound to the authenticated user server-side; a client cannot
+   * register a token against somebody else's account.
+   */
+  .post("/push/tokens", requireAuth, zValidator("json", pushTokenSchema), async (c) => {
+    const user = currentUser(c);
+    const { token, platform } = c.req.valid("json");
+
+    await db
+      .insert(pushTokens)
+      .values({ token, userId: user.id, platform })
+      .onConflictDoUpdate({
+        target: pushTokens.token,
+        // Re-registering moves the device to whoever is signed in now, so a
+        // shared handset does not keep pushing to the previous account.
+        set: { userId: user.id, platform },
+      });
+
+    return c.json({ ok: true }, 201);
+  })
+
+  .delete("/push/tokens/:token", requireAuth, async (c) => {
+    const user = currentUser(c);
+    await db
+      .delete(pushTokens)
+      .where(and(eq(pushTokens.token, c.req.param("token")), eq(pushTokens.userId, user.id)));
     return c.json({ ok: true });
   })
 

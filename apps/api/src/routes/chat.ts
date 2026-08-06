@@ -2,8 +2,10 @@ import { zValidator } from "@hono/zod-validator";
 import { and, asc, eq, lt } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { chatRooms, messages, notifications, profiles } from "@lunchmeet/db";
+import { chatRooms, messages, profiles } from "@lunchmeet/db";
 import { db } from "../db.js";
+import { notify } from "../lib/notify.js";
+import { publish } from "../realtime/pubsub.js";
 import { currentUser, requireAuth, type AppVariables } from "../middleware/session.js";
 import {
   canAccessChat,
@@ -91,41 +93,41 @@ export const chatRoutes = new Hono<{ Variables: AppVariables }>()
     const { body } = c.req.valid("json");
     const roomId = await roomForLunch(context);
 
-    const created = await db.transaction(async (tx) => {
-      const [message] = await tx
-        .insert(messages)
-        .values({ chatRoomId: roomId, senderId: user.id, body })
-        .returning();
+    const [created] = await db
+      .insert(messages)
+      .values({ chatRoomId: roomId, senderId: user.id, body })
+      .returning();
 
-      // Notify every other participant. Written in the same transaction as the
-      // message, so a notification failure fails the send rather than silently
-      // losing it, which a database trigger could not guarantee.
-      const participants = await tx.query.lunchAttendees.findMany({
-        where: (attendees, { and: andOp, eq: eqOp }) =>
-          andOp(eqOp(attendees.lunchId, context.lunch.id), eqOp(attendees.status, "accepted")),
-        columns: { userId: true },
-      });
+    const participants = await db.query.lunchAttendees.findMany({
+      where: (attendees, { and: andOp, eq: eqOp }) =>
+        andOp(eqOp(attendees.lunchId, context.lunch.id), eqOp(attendees.status, "accepted")),
+      columns: { userId: true },
+    });
 
-      const recipients = new Set<string>([
-        context.lunch.hostId,
-        ...(context.lunch.coHostId ? [context.lunch.coHostId] : []),
-        ...participants.map((p) => p.userId),
-      ]);
-      recipients.delete(user.id);
+    const recipients = [
+      context.lunch.hostId,
+      ...(context.lunch.coHostId ? [context.lunch.coHostId] : []),
+      ...participants.map((p) => p.userId),
+    ].filter((id) => id !== user.id);
 
-      if (recipients.size > 0) {
-        await tx.insert(notifications).values(
-          [...recipients].map((recipientId) => ({
-            userId: recipientId,
-            type: "new_message" as const,
-            title: `${user.name} sent a message`,
-            body: body.slice(0, 120),
-            data: { lunchId: context.lunch.id },
-          }))
-        );
-      }
+    // Push the message to anyone currently connected, then notify. Delivery is
+    // deliberately after the write: the message is already durable, so a
+    // socket failure degrades to a notification rather than losing content.
+    if (created) {
+      await publish({
+        type: "message",
+        lunchId: context.lunch.id,
+        messageId: created.id,
+        recipients,
+      }).catch((error: unknown) => console.error("Realtime publish failed:", error));
+    }
 
-      return message;
+    await notify({
+      recipients,
+      type: "new_message",
+      title: `${user.name} sent a message`,
+      body: body.slice(0, 120),
+      data: { lunchId: context.lunch.id },
     });
 
     return c.json({ message: created }, 201);

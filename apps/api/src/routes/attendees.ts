@@ -1,7 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
-import { lunchAttendees, notifications } from "@lunchmeet/db";
+import { lunchAttendees } from "@lunchmeet/db";
 import { db } from "../db.js";
+import { notify } from "../lib/notify.js";
 import { badRequest, conflict, forbidden, notFound } from "../lib/errors.js";
 import { currentUser, requireAuth, type AppVariables } from "../middleware/session.js";
 import { requireOrganiser, resolveLunchContext } from "../policy/lunch.js";
@@ -45,21 +46,17 @@ export const attendeeRoutes = new Hono<{ Variables: AppVariables }>()
         .values({ lunchId: context.lunch.id, userId: user.id, status: "pending" })
         .returning();
 
-      const recipients = [context.lunch.hostId, context.lunch.coHostId].filter(
-        (id): id is string => Boolean(id)
-      );
-
-      await tx.insert(notifications).values(
-        recipients.map((recipientId) => ({
-          userId: recipientId,
-          type: "join_request" as const,
-          title: `${user.name} asked to join`,
-          body: context.lunch.restaurantName,
-          data: { lunchId: context.lunch.id },
-        }))
-      );
-
       return row;
+    });
+
+    await notify({
+      recipients: [context.lunch.hostId, context.lunch.coHostId].filter(
+        (id): id is string => Boolean(id)
+      ),
+      type: "join_request",
+      title: `${user.name} asked to join`,
+      body: context.lunch.restaurantName,
+      data: { lunchId: context.lunch.id },
     });
 
     return c.json({ attendee: created }, 201);
@@ -86,7 +83,7 @@ export const attendeeRoutes = new Hono<{ Variables: AppVariables }>()
         .limit(1);
 
       if (!attendee) throw notFound("Request not found.");
-      if (attendee.status === "accepted") return attendee;
+      if (attendee.status === "accepted") return { row: attendee, requesterId: attendee.userId };
 
       const confirmed = await tx.$count(
         lunchAttendees,
@@ -102,18 +99,18 @@ export const attendeeRoutes = new Hono<{ Variables: AppVariables }>()
         .where(eq(lunchAttendees.id, attendeeId))
         .returning();
 
-      await tx.insert(notifications).values({
-        userId: attendee.userId,
-        type: "request_accepted",
-        title: "Your request was accepted",
-        body: context.lunch.restaurantName,
-        data: { lunchId: context.lunch.id },
-      });
-
-      return row;
+      return { row, requesterId: attendee.userId };
     });
 
-    return c.json({ attendee: updated });
+    await notify({
+      recipients: [updated.requesterId],
+      type: "request_accepted",
+      title: "Your request was accepted",
+      body: context.lunch.restaurantName,
+      data: { lunchId: context.lunch.id },
+    });
+
+    return c.json({ attendee: updated.row });
   })
 
   .post("/:lunchId/attendees/:attendeeId/deny", requireAuth, async (c) => {

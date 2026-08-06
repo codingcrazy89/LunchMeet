@@ -93,6 +93,8 @@ const config: ExpoConfig = {
           "LunchMeet needs your location to show nearby restaurants on the map.",
       },
     ],
+    // Stores the Better Auth session in the platform keychain.
+    "expo-secure-store",
     [
       "expo-image-picker",
       {

@@ -2,8 +2,9 @@ import { zValidator } from "@hono/zod-validator";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { lunchAttendees, lunchInvites, lunches, notifications, profiles } from "@lunchmeet/db";
+import { lunchAttendees, lunchInvites, lunches, profiles } from "@lunchmeet/db";
 import { db } from "../db.js";
+import { notify } from "../lib/notify.js";
 import { badRequest, conflict, notFound } from "../lib/errors.js";
 import { currentUser, requireAuth, type AppVariables } from "../middleware/session.js";
 import { requireOrganiser, resolveLunchContext } from "../policy/lunch.js";
@@ -54,8 +55,8 @@ export const lunchInviteRoutes = new Hono<{ Variables: AppVariables }>().post(
 
     if (!created) throw conflict("That person has already been invited.");
 
-    await db.insert(notifications).values({
-      userId: invitee.userId,
+    await notify({
+      recipients: [invitee.userId],
       type: "invite",
       title: `${user.name} invited you to lunch`,
       body: context.lunch.restaurantName,
