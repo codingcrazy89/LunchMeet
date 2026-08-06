@@ -1,6 +1,7 @@
 export {
   serverEnvSchema,
   loadServerEnv,
+  loadDotEnv,
   isProduction,
   assertProductionSafety,
   type ServerEnv,
