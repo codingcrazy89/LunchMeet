@@ -4,6 +4,8 @@ import { assertProductionSafety } from "@lunchmeet/config";
 import { createApp } from "./app.js";
 import { closeDatabase } from "./db.js";
 import { env } from "./env.js";
+import { logger } from "./lib/logger.js";
+import { initSentry } from "./lib/sentry.js";
 import { attachRealtime, closeRealtime } from "./realtime/hub.js";
 import { stopPubSub } from "./realtime/pubsub.js";
 import { startScheduler, stopScheduler } from "./scheduler/index.js";
@@ -22,11 +24,21 @@ if (problems.length > 0) {
   process.exit(1);
 }
 
+// Initialise before anything else, so a failure during startup is reported.
+const sentryEnabled = initSentry();
+
 const app = createApp();
 
 const server = serve({ fetch: app.fetch, port: env.PORT }, (info) => {
-  console.log(`LunchMeet API listening on http://localhost:${info.port} (${env.NODE_ENV})`);
-  console.log(`WebSocket endpoint at ws://localhost:${info.port}/ws`);
+  logger.info(
+    {
+      port: info.port,
+      environment: env.NODE_ENV,
+      sentry: sentryEnabled,
+      websocket: `ws://localhost:${info.port}/ws`,
+    },
+    "LunchMeet API started"
+  );
 });
 
 // Realtime and the rating-prompt scheduler both live in this process, so both
@@ -35,7 +47,7 @@ attachRealtime(server as unknown as Server);
 startScheduler();
 
 async function shutdown(signal: string): Promise<void> {
-  console.log(`\n${signal} received, shutting down.`);
+  logger.info({ signal }, "shutting down");
   stopScheduler();
   closeRealtime();
   server.close();

@@ -13,9 +13,13 @@ import { ContactsProvider } from "../src/ContactsContext";
 import { LunchProvider } from "../src/LunchContext";
 import { NotificationProvider } from "../src/NotificationContext";
 import { queryClient } from "../src/api/queryClient";
+import { initObservability } from "../src/lib/observability";
 import { useRealtime } from "../src/api/realtime";
 import { NotificationToastLayer } from "../src/features/notifications/NotificationToastLayer";
 import { usePushRegistration } from "../src/features/notifications/usePushRegistration";
+
+// Before anything else, so an error during startup is still reported.
+initObservability();
 
 // Keep splash visible until we hide it (guard for standalone builds)
 try {

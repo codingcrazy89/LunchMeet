@@ -14,6 +14,8 @@ export const publicEnvSchema = z.object({
     .string()
     .regex(/^wss?:\/\//, "must start with ws:// or wss://")
     .default("ws://localhost:8787/ws"),
+  /** Identifies the Sentry project. Cannot read data, so it is safe to ship. */
+  EXPO_PUBLIC_SENTRY_DSN: z.string().optional(),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
@@ -30,6 +32,7 @@ export function readPublicEnv(): Record<string, string | undefined> {
   return {
     EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL,
     EXPO_PUBLIC_WS_URL: process.env.EXPO_PUBLIC_WS_URL,
+    EXPO_PUBLIC_SENTRY_DSN: process.env.EXPO_PUBLIC_SENTRY_DSN,
   };
 }
 

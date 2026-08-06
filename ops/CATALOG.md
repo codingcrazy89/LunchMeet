@@ -106,8 +106,10 @@ Error reporting for API and client. v1 was blind to production crashes.
 | Variable | Required | Secret | Stored in |
 |---|---|---|---|
 | `SENTRY_DSN` | no | no | API host environment |
+| `EXPO_PUBLIC_SENTRY_DSN` | no | no | EAS secrets (ships in the app binary) |
 | `SENTRY_AUTH_TOKEN` | no | yes | GitHub Actions secrets |
 
+- `EXPO_PUBLIC_SENTRY_DSN`: Client DSN. Ships in the binary; identifies the project but cannot read data.
 - `SENTRY_AUTH_TOKEN`: CI only, for uploading source maps.
 
 ## Production database prerequisites

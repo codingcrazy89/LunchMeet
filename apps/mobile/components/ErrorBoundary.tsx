@@ -1,5 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { reportError } from "../src/lib/observability";
 
 type Props = { children: React.ReactNode };
 
@@ -15,7 +16,15 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     return { hasError: true, error };
   }
 
-  render() {
+  /**
+   * v1 caught render errors and showed them, but told nobody. A user seeing
+   * this screen was invisible unless they wrote in about it.
+   */
+  override componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    reportError(error, { componentStack: info.componentStack });
+  }
+
+  override render() {
     if (this.state.hasError && this.state.error) {
       return (
         <View style={styles.container}>

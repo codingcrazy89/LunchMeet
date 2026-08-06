@@ -1,11 +1,13 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { logger } from "hono/logger";
 import { HTTPException } from "hono/http-exception";
 import { ZodError } from "zod";
 import { auth } from "./auth.js";
 import { env } from "./env.js";
 import { ApiError } from "./lib/errors.js";
+import { logger } from "./lib/logger.js";
+import { captureError } from "./lib/sentry.js";
+import { healthRoutes } from "./routes/health.js";
 import { withSession, type AppVariables } from "./middleware/session.js";
 import { attendeeRoutes } from "./routes/attendees.js";
 import { chatRoutes } from "./routes/chat.js";
@@ -19,9 +21,24 @@ import { socialRoutes } from "./routes/social.js";
 export function createApp() {
   const app = new Hono<{ Variables: AppVariables }>();
 
-  if (env.LOG_LEVEL === "debug") {
-    app.use("*", logger());
-  }
+  /**
+   * One structured line per request. Deliberately records method, path,
+   * status and duration and nothing else: request headers carry the session
+   * cookie, and the logger redacts them if they ever appear.
+   */
+  app.use("*", async (c, next) => {
+    const startedAt = performance.now();
+    await next();
+    logger.info(
+      {
+        method: c.req.method,
+        path: c.req.path,
+        status: c.res.status,
+        durationMs: Math.round(performance.now() - startedAt),
+      },
+      "request"
+    );
+  });
 
   /**
    * The mobile app is not a browser origin, but the Expo web build is.
@@ -37,7 +54,7 @@ export function createApp() {
     })
   );
 
-  app.get("/health", (c) => c.json({ ok: true, environment: env.NODE_ENV }));
+  app.route("/health", healthRoutes);
 
   // Better Auth owns everything under /api/auth: sign-in, callbacks, sessions.
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
@@ -74,7 +91,8 @@ export function createApp() {
       return c.json({ error: { code: "http_error", message: error.message } }, error.status);
     }
 
-    console.error("Unhandled error:", error);
+    logger.error({ err: error, path: c.req.path }, "unhandled error");
+    captureError(error, { path: c.req.path, method: c.req.method });
     return c.json(
       { error: { code: "internal_error", message: "Something went wrong." } },
       500

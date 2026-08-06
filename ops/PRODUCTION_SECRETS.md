@@ -118,10 +118,11 @@ Credentials that are **not** environment variables and live in the EAS credentia
 
 ## Error reporting
 
-- `SENTRY_DSN` — semi-public. Embedded in the client; identifies the project but cannot read data.
+- `SENTRY_DSN` — semi-public. Used by the API.
+- `EXPO_PUBLIC_SENTRY_DSN` — semi-public. Used by the mobile client. Ships inside the binary; a DSN identifies the project and accepts events but cannot read them, so exposure is not a breach.
 - `SENTRY_AUTH_TOKEN` — **secret**. CI-only, for uploading source maps.
 - `SENTRY_ORG`, `SENTRY_PROJECT` — public.
-  - Store: DSN in API host environment and EAS secrets; auth token in GitHub Actions secrets only.
+  - Store: `SENTRY_DSN` in the API host environment, `EXPO_PUBLIC_SENTRY_DSN` in EAS secrets, and the auth token in GitHub Actions secrets only.
 
 ## Build and release (CI only)
 

@@ -118,6 +118,7 @@ const config: ExpoConfig = {
     // v2 configuration, validated by packages/config.
     apiUrl: publicEnv.EXPO_PUBLIC_API_URL,
     wsUrl: publicEnv.EXPO_PUBLIC_WS_URL,
+    sentryDsn: publicEnv.EXPO_PUBLIC_SENTRY_DSN,
 
     // v1 configuration, removed once the client finishes moving to the v2 API.
     supabaseUrl: legacySupabase.url,

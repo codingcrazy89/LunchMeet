@@ -292,6 +292,13 @@ export const catalog: CatalogEntry[] = [
     env: [
       { name: "SENTRY_DSN", secret: false, store: "api-host-env", required: false },
       {
+        name: "EXPO_PUBLIC_SENTRY_DSN",
+        secret: false,
+        store: "eas-secrets",
+        required: false,
+        note: "Client DSN. Ships in the binary; identifies the project but cannot read data.",
+      },
+      {
         name: "SENTRY_AUTH_TOKEN",
         secret: true,
         store: "gh-actions",
