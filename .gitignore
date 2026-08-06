@@ -35,6 +35,11 @@ yarn-error.*
 .env
 .cloudflare-tunnel-url
 
+# v1 tunnel artifacts (were previously committed with live URLs)
+.cf-proxy-url
+.cf-metro-url
+.metro-tunnel-url
+
 # typescript
 *.tsbuildinfo
 
@@ -43,3 +48,9 @@ app-example
 # generated native folders
 /ios
 /android
+apps/mobile/ios
+apps/mobile/android
+
+# build output
+dist/
+**/dist/

@@ -1,0 +1,24 @@
+{
+  "name": "@lunchmeet/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./public": "./src/public.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "doctor": "tsx src/doctor.ts",
+    "generate": "tsx src/generate.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.8"
+  }
+}

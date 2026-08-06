@@ -6,7 +6,7 @@ const easEnv = easConfig?.build?.development?.env || {};
 
 module.exports = {
   expo: {
-    name: "LunchMeet",
+    name: "LunchMeet Social",
     slug: "lunchmeet",
     owner: "jpmitchell89",
     scheme: "lunchmeet",
@@ -43,8 +43,17 @@ module.exports = {
         "ACCESS_COARSE_LOCATION",
       ],
       ...(function () {
-        const mapsKey = process.env.GOOGLE_PLACES_API_KEY || process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY;
-        if (!mapsKey) return {};
+        const mapsKey =
+          process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ||
+          process.env.GOOGLE_PLACES_API_KEY ||
+          easEnv.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY;
+        if (!mapsKey) {
+          // Release builds without a key silently ship without native maps.
+          console.warn(
+            "[app.config] No Android Maps API key found. Native maps will not render on Android."
+          );
+          return {};
+        }
         return { config: { googleMaps: { apiKey: mapsKey } } };
       })(),
     },
@@ -65,6 +74,18 @@ module.exports = {
         "expo-location",
         {
           locationWhenInUsePermission: "LunchMeet needs your location to show nearby restaurants on the map.",
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "LunchMeet needs access to your photos so you can add them to your profile.",
+          // The app never opens the camera or records audio. Declaring unused
+          // permissions invites App Review questions and contradicts the
+          // privacy policy, so omit them.
+          cameraPermission: false,
+          microphonePermission: false,
         },
       ],
     ],

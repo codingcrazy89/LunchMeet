@@ -1,0 +1,15 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": ["./*"],
+      "@lunchmeet/shared": ["../../packages/shared/src/index.ts"],
+      "@lunchmeet/shared/*": ["../../packages/shared/src/*"],
+      "@lunchmeet/config": ["../../packages/config/src/index.ts"],
+      "@lunchmeet/config/*": ["../../packages/config/src/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["node_modules"]
+}

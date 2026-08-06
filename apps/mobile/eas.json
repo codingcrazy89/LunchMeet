@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.0.0"
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -26,7 +27,15 @@
         "EXPO_PUBLIC_PLACES_PROXY_URL": "https://lunchmeet-places-proxy.onrender.com"
       }
     },
-    "production": {}
+    "production": {
+      "distribution": "store",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://oamukmulfmmlkxrjtjfx.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9hbXVrbXVsZm1tbGt4cmp0amZ4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU2NTY1MDUsImV4cCI6MjA4MTIzMjUwNX0.cDXPvXE-3Ce9Uu2hzmZx_bTWa30tazDx9RiLafEmg-c",
+        "EXPO_PUBLIC_PLACES_PROXY_URL": "https://lunchmeet-places-proxy.onrender.com"
+      }
+    }
   },
   "submit": {
     "production": {

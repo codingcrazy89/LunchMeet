@@ -1,0 +1,43 @@
+# Local development services for LunchMeet v2.
+#
+# Postgres is intentionally NOT here: it runs natively on localhost:5432
+# (database lunchmeet_dev). Only services that would otherwise need a cloud
+# account are containerised, so phases 0-7 can be built entirely offline.
+
+name: lunchmeet-dev
+
+services:
+  # Stand-in for Google Cloud Storage. Matches the production adapter so the
+  # code path exercised in dev is the one that runs in production.
+  gcs:
+    container_name: lunchmeet-gcs
+    image: fsouza/fake-gcs-server:latest
+    command:
+      - -scheme
+      - http
+      - -host
+      - 0.0.0.0
+      - -port
+      - "4443"
+      - -public-host
+      - localhost:4443
+      - -backend
+      - memory
+    ports:
+      - "4443:4443"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4443/storage/v1/b"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Catches magic-link emails locally. Web UI on http://localhost:8025
+  mail:
+    container_name: lunchmeet-mail
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"

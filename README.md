@@ -2,7 +2,14 @@
 
 A social platform for organizing lunch meetups where users can host or join lunch meetings at restaurants.
 
-Shipping on iOS as **LunchMeet Social** — [App Store](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
+Shipping on iOS as **LunchMeet Social**.
+
+[![App Store](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fitunes.apple.com%2Flookup%3Fid%3D6760374356&query=%24.results%5B0%5D.version&label=App%20Store&color=0D96F6&logo=apple&logoColor=white)](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
+[![Rating](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fitunes.apple.com%2Flookup%3Fid%3D6760374356&query=%24.results%5B0%5D.averageUserRating&suffix=%20%2F%205&label=rating&color=brightgreen)](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
+[![Ratings](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fitunes.apple.com%2Flookup%3Fid%3D6760374356&query=%24.results%5B0%5D.userRatingCount&label=ratings&color=blue)](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
+[![Min iOS](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fitunes.apple.com%2Flookup%3Fid%3D6760374356&query=%24.results%5B0%5D.minimumOsVersion&prefix=iOS%20&label=requires&color=lightgrey)](https://apps.apple.com/us/app/lunchmeet-social/id6760374356)
+
+These read live from Apple's public iTunes Lookup API, so they update without a CI job or any stored secret. Download counts are deliberately absent — Apple exposes them in no public API, only through authenticated App Store Connect reports. A profiles-created badge lands once the v2 API ships `GET /v1/public/stats`.
 
 ## Features
 
@@ -18,94 +25,92 @@ Shipping on iOS as **LunchMeet Social** — [App Store](https://apps.apple.com/u
 - 🔐 Sign in with Google or Apple (in addition to email magic link)
 - 🛡️ Safety tips and first-launch warning
 
+## Repository layout
+
+v2 is a npm-workspaces monorepo:
+
+```
+apps/
+  mobile/          Expo / React Native client (Expo Router)
+  api/             Hono API, Better Auth, WebSocket hub
+packages/
+  db/              Drizzle schema and versioned migrations
+  shared/          Zod schemas and domain types used by both sides
+  config/          Source catalogue: every env var and dependency, declared once
+ops/               Production runbooks (PRODUCTION_SECRETS.md)
+docs/              Public GitHub Pages site (landing, privacy, support)
+archive/           v1 setup docs and backups, kept for reference
+```
+
 ## Get started
 
 ### Prerequisites
 
-- Node.js installed
-- A Google Places API key
-- A Supabase account with project set up
+- Node.js 22+
+- Docker (for the local object-storage and mail containers)
+- PostgreSQL 16 running locally on port 5432
 
 ### Installation
 
-1. Clone the repository
+1. Clone and install
 
    ```bash
    git clone https://github.com/codingcrazy89/LunchMeet.git
    cd LunchMeet
-   ```
-
-2. Install dependencies
-
-   ```bash
    npm install
    ```
 
-3. Set up environment variables
+2. Create the development database
 
-   Create a `.env` file in the root directory:
-
-   ```env
-   GOOGLE_PLACES_API_KEY=your_google_places_api_key
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```sql
+   CREATE ROLE lunchmeet_dev WITH LOGIN PASSWORD 'choose-one';
+   CREATE DATABASE lunchmeet_dev OWNER lunchmeet_dev;
    ```
 
-4. Configure Google and Apple OAuth (optional, for social sign-in)
+3. Configure environment
 
-   To enable "Sign in with Google" and "Sign in with Apple":
+   Copy `.env.example` to `.env` and fill it in. Every variable is declared and
+   validated in `packages/config`; the API refuses to boot with a clear error
+   rather than failing later on an undefined value.
 
-   - Go to [Supabase Dashboard](https://supabase.com/dashboard) → your project → **Authentication** → **Providers**
-   - **Google**: Enable the Google provider and add your OAuth client ID and secret from [Google Cloud Console](https://console.cloud.google.com/)
-   - **Apple**: Enable the Apple provider and add your Apple OAuth credentials (required for iOS App Store; only shown on native, not web)
-   - Add your **Redirect URLs** in Supabase → Authentication → URL Configuration:
-     - For web: your app origin (e.g. `http://localhost:8081` for local dev, or your production URL)
-     - For native: your Expo deep link scheme (e.g. `exp://...` or your custom scheme)
-
-5. Start the proxy server (for Google Places API)
+4. Start supporting services
 
    ```bash
-   npm run proxy
+   npm run dev:services      # fake-gcs-server + Mailpit
    ```
 
-6. Start the app
+5. Set up the database
 
    ```bash
-   npm run web
+   npm run db:migrate
+   npm run db:seed
    ```
 
-## Database Setup
+6. Run the app
 
-Run the SQL migrations in the `migrations/` directory in your Supabase SQL Editor (in order):
+   ```bash
+   npm run api               # Hono API
+   npm run mobile            # Expo
+   ```
 
-1. `create_chat_system.sql` - Creates chat rooms and messages tables
-2. `add_looking_for_column.sql` - Adds looking_for column to profiles
-3. `add_status_to_lunch_attendees.sql` - Adds status to lunch_attendees
-4. `fix_lunch_attendees_rls_v2.sql` - Sets up RLS policies for lunch_attendees
-5. `alternative_rls_fix.sql` - Creates RPC functions for accepting/denying requests
-6. `enable_realtime_messages.sql` - Enables real-time for messages
-7. `create_user_ratings.sql` - User 1-5 star ratings after lunch meets
-8. `add_lunch_visibility.sql` - Visibility filtering (gender, looking for)
-9. `add_co_host_to_lunches.sql` - Co-host support
-10. `create_lunch_invites.sql` - Direct private invites
-11. `add_social_media_url.sql` - Social media link badge on profiles
-12. `create_notifications.sql` - In-app notifications (invites, join requests, co-host, chat, request accepted)
-13. `add_lunch_is_public.sql` - Public/private lunch visibility (private = invite-only)
+Local development needs no Google Cloud account. `fake-gcs-server` stands in for
+Cloud Storage and Mailpit catches magic-link emails at http://localhost:8025.
 
-## Tech Stack (v1 — currently shipping)
+### Useful commands
 
-- **Frontend**: React Native with Expo
-- **Backend**: Supabase (PostgreSQL + Authentication + Realtime)
-- **Maps**: Google Places API
-- **Routing**: Expo Router
+| Command | Purpose |
+|---|---|
+| `npm run doctor` | Health-check every configured dependency |
+| `npm run db:generate` | Generate a migration from schema changes |
+| `npm run db:studio` | Browse the database |
+| `npm run lint` / `typecheck` / `test` | Across all workspaces |
 
 ---
 
-# Version 2 — Architecture Direction
+# Architecture
 
-v2 is an in-progress rebuild on the `v2` branch. Everything above still describes the shipping app.
-
-Full detail lives in [the v2 plan](.cursor/plans/lunchmeet-v2-rebuild.plan.md), and the analysis that motivated it is in [LunchMeet.arch.md](LunchMeet.arch.md).
+The analysis that motivated the rebuild is in [LunchMeet.arch.md](LunchMeet.arch.md);
+the plan is in [the v2 plan](.cursor/plans/lunchmeet-v2-rebuild.plan.md).
 
 ## The stack
 
