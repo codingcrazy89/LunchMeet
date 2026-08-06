@@ -73,6 +73,9 @@ export const serverEnvSchema = z.object({
 
   // Error reporting
   SENTRY_DSN: z.string().optional(),
+
+  /** Read-only v1 database, used once during cutover. Never set in normal operation. */
+  SUPABASE_DB_URL: z.string().optional(),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema> & PublicEnv;

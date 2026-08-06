@@ -314,6 +314,33 @@ export const catalog: CatalogEntry[] = [
   },
 ];
 
+/**
+ * Present only during the v1 to v2 cutover. Listed so the credential is
+ * documented and its absence in normal operation is deliberate rather than an
+ * oversight. See ops/CUTOVER.md.
+ */
+catalog.push({
+  id: "supabase-legacy",
+  title: "Supabase (v1, cutover only)",
+  purpose: "Read-only source for the one-off data migration into the v2 schema.",
+  critical: false,
+  obtain: "Supabase dashboard, Project Settings, Database. Use a read-only role.",
+  env: [
+    {
+      name: "SUPABASE_DB_URL",
+      secret: true,
+      store: "none",
+      required: false,
+      note: "Supplied at the shell for a single run. Must not be set in a deployed environment.",
+    },
+  ],
+  async check(env) {
+    return env.SUPABASE_DB_URL
+      ? { status: "ok", detail: "Cutover connection configured." }
+      : { status: "skip", detail: "Not configured, which is correct outside cutover." };
+  },
+});
+
 export function findEntry(id: string): CatalogEntry | undefined {
   return catalog.find((entry) => entry.id === id);
 }

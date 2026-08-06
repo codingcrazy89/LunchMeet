@@ -164,3 +164,14 @@ Safe to commit and to bake into client bundles. Listed for completeness, since `
 - [ ] APNs key and FCM credentials uploaded to EAS
 - [ ] Sentry receiving events from both client and API
 - [ ] Every value present in its correct store, and none of them in this file
+
+## Cutover only
+
+- `SUPABASE_DB_URL` — **secret**. Read-only connection to the v1 Supabase
+  database, used once by the migration script.
+  - Obtain: Supabase dashboard → Project Settings → Database. Prefer a
+    read-only role.
+  - Store: nowhere. Supply it at the shell for a single run. It must never be
+    set in a deployed environment; `npm run doctor` reports it as correctly
+    absent outside cutover.
+  - See [CUTOVER.md](CUTOVER.md).

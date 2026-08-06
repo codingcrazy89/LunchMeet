@@ -112,6 +112,18 @@ Error reporting for API and client. v1 was blind to production crashes.
 - `EXPO_PUBLIC_SENTRY_DSN`: Client DSN. Ships in the binary; identifies the project but cannot read data.
 - `SENTRY_AUTH_TOKEN`: CI only, for uploading source maps.
 
+## Supabase (v1, cutover only) (optional)
+
+Read-only source for the one-off data migration into the v2 schema.
+
+**Obtain:** Supabase dashboard, Project Settings, Database. Use a read-only role.
+
+| Variable | Required | Secret | Stored in |
+|---|---|---|---|
+| `SUPABASE_DB_URL` | no | yes | Not a stored value |
+
+- `SUPABASE_DB_URL`: Supplied at the shell for a single run. Must not be set in a deployed environment.
+
 ## Production database prerequisites
 
 Migrations issue `CREATE EXTENSION`, which a non-superuser role cannot do. An
