@@ -18,36 +18,27 @@ A social platform for organizing lunch meetups where users can host or join lunc
 
 ## Get started
 
-### Prerequisites
+📖 **For detailed setup instructions, see [DEVELOPMENT.md](./DEVELOPMENT.md)**
 
-- Node.js installed
-- A Google Places API key
-- A Supabase account with project set up
+### Quick Start
 
-### Installation
-
-1. Clone the repository
-
+1. **Clone and install**
    ```bash
    git clone https://github.com/codingcrazy89/LunchMeet.git
    cd LunchMeet
-   ```
-
-2. Install dependencies
-
-   ```bash
    npm install
    ```
 
-3. Set up environment variables
-
-   Create a `.env` file in the root directory:
-
-   ```env
-   GOOGLE_PLACES_API_KEY=your_google_places_api_key
-   EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+2. **Set up environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your actual API keys and Supabase credentials
    ```
+
+3. **Set up Supabase**
+   - Create a project at https://supabase.com
+   - Run the migrations from `migrations/` directory in Supabase SQL Editor
+   - Add credentials to `.env`
 
 4. Configure Google and Apple OAuth (optional, for social sign-in)
 
@@ -60,15 +51,16 @@ A social platform for organizing lunch meetups where users can host or join lunc
      - For web: your app origin (e.g. `http://localhost:8081` for local dev, or your production URL)
      - For native: your Expo deep link scheme (e.g. `exp://...` or your custom scheme)
 
-5. Start the proxy server (for Google Places API)
+5. **Set up Google Places API**
+   - Get an API key from Google Cloud Console
+   - Add to `.env` as `GOOGLE_PLACES_API_KEY`
 
+6. **Start development**
    ```bash
+   # Terminal 1: Start proxy server
    npm run proxy
-   ```
 
-6. Start the app
-
-   ```bash
+   # Terminal 2: Start the app
    npm run web
    ```
 
